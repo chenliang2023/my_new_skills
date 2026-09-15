@@ -73,6 +73,7 @@ CodeG 自带完整的任务管理和并发控制，你不需要重复造轮子�
 
 ```
 skills/
+  ask/             # 根技能：场景路由器
   planning/        # 本机规划阶段（用户调用）
     grill-me/
     research/
@@ -115,7 +116,7 @@ CodeG 使用共享 skill 存储（`~/.codeg/skills/`），通过 skill-and-agent
 
 详见 `/setup-workflow` skill。
 
-运行 `/setup-workflow` 进行首次配置。
+运行 `/setup-workflow` 进行首次配置。不知道从哪开始？运行 `/ask`，它会根据你的当前场景告诉你该用哪个 skill。
 
 ## 约定
 

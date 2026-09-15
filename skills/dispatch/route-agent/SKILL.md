@@ -1,6 +1,6 @@
 ---
 name: route-agent
-description: 根据 ticket 内容自动判断应分派给哪个 CodeG agent（Claude/PI/AntiGravity）。供 /dispatch 调用，也可独立运行做路由预检。
+description: 根据 ticket 内容自动判断应分派给哪个 CodeG agent（Claude Code / Pi / Google Antigravity）。供 /dispatch 调用，也可独立运行做路由预检。
 ---
 
 # Route Agent

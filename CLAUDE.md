@@ -6,6 +6,7 @@
 
 Skills 按 bucket 文件夹组织：
 
+- `ask/`：根技能，所有 skill 的路由器
 - `planning/`：本机规划阶段（用户调用），产出文档供服务器消费
 - `dispatch/`：服务器执行阶段（用户调用），驱动三 agent 并发
 - `engineering/`：工程实践规范（模型调用），agent 实现时自动遵守

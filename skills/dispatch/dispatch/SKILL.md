@@ -1,6 +1,6 @@
 ---
 name: dispatch
- description: 读取 .workflow/tickets/ 中未完成的 ticket，按阻塞边拓扑顺序，在 CodeG 的 To-dos 面板中创建任务并分派给对应 agent。在服务器端 CodeG 中运行。
+description: 读取 .workflow/tickets/ 中未完成的 ticket，按阻塞边拓扑顺序，在 CodeG 的 To-dos 面板中创建任务并分派给对应 agent。在服务器端 CodeG 中运行。
 disable-model-invocation: true
 ---
 

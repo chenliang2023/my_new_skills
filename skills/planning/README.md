@@ -4,7 +4,7 @@
 
 ## Skills
 
-- **[grill-me](./grill-me/SKILL.md)**：通过 relentless interview 打磨一个想法或计划，直到它足够清晰可以交由服务器端 agent 实现。规划入口。
-- **[research](./research/SKILL.md)**：派发后台 agent 调研技术问题，产出 Markdown 存入 `.workflow/research/`。
-- **[to-spec](./to-spec/SKILL.md)**：将对话或 grill 摘要综合成正式 spec，存入 `.workflow/specs/`。
-- **[to-tickets](./to-tickets/SKILL.md)**：将 spec 拆成 tracer-bullet ticket，每个声明阻塞边，写入 `.workflow/tickets/`。
+- **[grill-me](./grill-me/SKILL.md)**：通过 relentless interview 打磨一个想法、计划或设计，直到它足够清晰可以交由服务器端 agent 实现。多轮提问，每轮推进 frontier。规划入口。
+- **[research](./research/SKILL.md)**：派发后台 agent 调研技术问题，产出 Markdown 存入 `.workflow/research/`。查 primary source，每个结论附来源链接。
+- **[to-spec](./to-spec/SKILL.md)**：将对话或 grill 摘要综合成正式 spec，存入 `.workflow/specs/`。不重新 interview，只做综合。
+- **[to-tickets](./to-tickets/SKILL.md)**：将 spec 拆成 tracer-bullet ticket，每个声明阻塞边和建议 agent，写入 `.workflow/tickets/`。供服务器端 CodeG 并发分派。
