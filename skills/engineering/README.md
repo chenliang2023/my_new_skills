@@ -4,6 +4,7 @@
 
 ## Skills
 
+- **[readable-docs](./readable-docs/SKILL.md)**：`.workflow/` 下所有文档的写法规范，以及写完后的对话回复格式。材料门槛、说话位置、段落切分、emoji 密度、Mermaid 图规范、查证过程与翻案腔的分界、补全时如何融入正文、交稿前自检、四块式回报。写 research、spec、ticket、报告时自动遵守。
 - **[tdd](./tdd/SKILL.md)**：测试驱动开发。红绿循环、好测试的标准、seam 选择、反模式。服务器端 agent 实现 ticket 时遵守。
 - **[diagnosing-bugs](./diagnosing-bugs/SKILL.md)**：系统性调试。先建紧凑反馈循环再修复，分阶段定位根因，最后写 regression 测试。
 - **[code-review](./code-review/SKILL.md)**：双轴代码复审（规范符合 + 工程标准）。本机拉取服务器结果后运行，作为交付前最终检查。

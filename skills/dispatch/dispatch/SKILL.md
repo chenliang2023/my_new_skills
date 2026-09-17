@@ -106,28 +106,33 @@ CodeG 自带完整的任务管理系统，你不不需要重复造轮子：
 
 ## 输出
 
-分派完成后输出：
+分派完成后输出。这是给用户看的回复，按 `/readable-docs` 的「写完之后的回复」保持工整：段落短，每条配 emoji，先给本轮派了几个、还剩几个被阻塞。
 
-```
-本轮分派（CodeG To-dos）：
-  [002] user-model → Claude（已创建 To-do）
-  [003] config-dto → Pi（已创建 To-do）
-  [006] search-ui → AntiGravity（已创建 To-do）
+```markdown
+## 🚀 本轮分派 <N> 个
 
-等待中（阻塞未满足）：
-  [005] login-ui（阻塞于 [002] [004]）
+### ✅ 已创建 To-do
 
-CodeG 设置：
-  并发限制：3（可在 Task settings 中调整）
-  Process automatically：已开启
+- 🤖 [002] user-model → Claude
+- 🤖 [003] config-dto → Pi
+- 🎨 [006] search-ui → AntiGravity
+
+### ⏳ 等待中（阻塞未满足）
+
+- 🚧 [005] login-ui，阻塞于 [002] [004]
+
+### ⚙️ CodeG 设置
+
+- 🔀 并发限制：3（可在 Task settings 中调整）
+- ⚡ Process automatically：已开启
 ```
 
 ## 下一步
 
-- 在 CodeG 的 To-dos 面板中观察任务进度
-- 任务完成后在 Review 列查看 diff
-- Merge 后运行 `/verify` 做全量验证
-- 或在本机拉取后运行 `/code-review`
+- 👀 在 CodeG 的 To-dos 面板中观察任务进度
+- 🔍 任务完成后在 Review 列查看 diff
+- ✅ Merge 后运行 `/verify` 做全量验证
+- 🧐 或在本机拉取后运行 `/code-review`
 
 ## CodeG 的 Review 与 Merge（你需要知道的结果回收方式）
 

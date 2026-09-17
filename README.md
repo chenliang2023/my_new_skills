@@ -85,12 +85,15 @@ skills/
     integrate/      # 跨 ticket 协调（补充用，CodeG 自带 Merge）
     verify/         # 全量验证
   engineering/      # 工程实践（模型调用）
+    readable-docs/  # .workflow 文档写法规范
     tdd/
     diagnosing-bugs/
     code-review/
     context-sync/   # 本机↔CodeG 上下文同步
   setup/            # 初始化
     setup-workflow/
+
+examples/           # 规范产出样例，用于校准合格线
 ```
 
 每个 skill 文件夹内含一个 `SKILL.md`，使用 YAML frontmatter 声明 `name`、`description`、是否 `disable-model-invocation`。
@@ -122,6 +125,7 @@ CodeG 使用共享 skill 存储（`~/.codeg/skills/`），通过 skill-and-agent
 
 - `.workflow/` 目录是两端共享的上下文载体，必须提交到 git
 - ticket 文件是 agent 的工作单元，必须自包含
+- `.workflow/` 下的文档遵守 `/readable-docs`：先对人可读，再对 agent 可解析
 - 术语表 `CONTEXT.md` 让两端命名一致
 - CodeG 的 Merge 流程处理单任务级别的冲突解决和 git 验证，`/integrate` 只在跨 ticket 协调时补充使用
 - 不使用 em-dash

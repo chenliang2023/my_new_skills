@@ -36,6 +36,8 @@ Skills 按 bucket 文件夹组织：
 
 - `.workflow/` 目录是两端共享的上下文载体，必须提交到 git
 - ticket 文件是 agent 的工作单元，必须自包含
+- `.workflow/` 下的文档遵守 `readable-docs`：先对人可读，再对 agent 可解析
+- `examples/` 存放规范产出样例，用于校准合格线，不属于任何项目的 `.workflow/`
 - 术语表 `CONTEXT.md` 让两端命名一致
 - CodeG 的 Merge 流程处理单任务级别的冲突解决和 git 验证，`/integrate` 只在跨 ticket 协调时补充使用
 - 不使用 em-dash

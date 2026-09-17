@@ -99,6 +99,7 @@ disable-model-invocation: true
 
 | Skill | Claude Code | PI | AntiGravity |
 |-------|-------------|-----|-------------|
+| readable-docs | ✓ | ✓ | ✓ |
 | tdd | ✓ | ✓ | ✓ |
 | diagnosing-bugs | ✓ | ✓ | ✓ |
 | code-review | ✓ | ✓ | ✓ |

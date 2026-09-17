@@ -57,6 +57,7 @@ disable-model-invocation: true
 
 不是功能开发，是代码质量保障。model-invoked，agent 实现时自动遵守。
 
+- **`/readable-docs`**：`.workflow/` 下文档的写法规范，以及写完文档后如何在对话里给用户一个工整回复。写 research、spec、ticket、grill 摘要、验证报告时遵守。让文档先对人可读，再对 agent 可解析。
 - **`/tdd`**：红绿循环、好测试标准、seam 选择、反模式。agent 实现 ticket 时遵守。
 - **`/diagnosing-bugs`**：系统性调试。先有反馈循环再修复，分阶段定位根因。
 - **`/code-review`**：双轴复审（规范符合 + 工程标准）。本机拉取服务器结果后运行。

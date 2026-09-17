@@ -106,6 +106,7 @@ CodeG 通过 `name` 字段作为 `/` 菜单中的标识，`description` 用于�
 
 交接前确认：
 - [ ] `.workflow/` 已提交到 git
+- [ ] 本轮新增或改动的文档按 `/readable-docs` 自检过，机械检查命中项已清零
 - [ ] CONTEXT.md 如有变更已更新
 - [ ] push 成功
 - [ ] 服务器 git pull 成功

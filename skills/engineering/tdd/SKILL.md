@@ -7,7 +7,7 @@ description: 测试驱动开发。当用户要构建功能或修复 bug 时使�
 
 TDD 是 红 → 绿 循环。本 skill 是让这个循环产出值得保留的测试的参考：什么是好测试、测试放哪、反模式、循环规则。每个 section 在每个 cycle 都适用：在循环开始前和进行中查阅，不是循环结束后。
 
-服务器端 agent（Claude / PI / DeepSeek / AntiGravity）在实现 ticket 时都应遵守此规范。
+服务器端 agent（Claude / Pi / AntiGravity）在实现 ticket 时都应遵守此规范。
 
 ## 什么是好测试
 
