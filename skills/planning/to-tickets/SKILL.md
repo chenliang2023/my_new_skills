@@ -23,9 +23,13 @@ disable-model-invocation: true
    - 每个 ticket 声明 **阻塞边**：它依赖哪些其它 ticket 先完成。
    - 互不依赖的 ticket 可以并发分派给不同 agent。
 
-3. **agent 分派建议**：根据 `.workflow/config.json` 的 `agent_routing`，为每个 ticket 标注建议的 agent（Claude / Pi / AntiGravity）。如果配置为空，根据 ticket 内容自动判断。
+3. **agent 分派建议**：为每个 ticket 标注建议的 agent（DeepSeek Harness / Pi / AntiGravity）。可以自己判断，或者不确定时调 `/route-agent` 自动判（默认 Pi）。`/route-agent` 内嵌规则；如果用户在 `config.json` 里写了 `agent_routing` 覆盖项，以覆盖项为准。
 
-4. **写 ticket 文件**：每个 ticket 一个文件，写入 `.workflow/tickets/`。
+4. **写 ticket 文件**：每个 ticket 一个文件，写入 `.workflow/tickets/`。注意：
+
+  - feature ticket → `.workflow/tickets/<id>-<slug>.md`（本 skill 主战场）
+  - release ticket → `.workflow/version/tickets/v<version>.md`（由 `/version` 创建，不走本 skill）
+  - bug fix ticket → `.workflow/bugs/tickets/<id>-fix-<slug>.md`（bug 修复工作流的产物，路径与 feature ticket 隔离，避免污染 `/dispatch` 默认扫描范围）
 
 ## ticket 模板
 
@@ -51,7 +55,7 @@ disable-model-invocation: true
 - 或：无（可立即开始）
 
 ## 🤖 建议 Agent
-<Claude | Pi | AntiGravity>
+<DeepSeek Harness | Pi | AntiGravity>
 理由：<一句话>
 
 ## 🌿 分支
@@ -108,17 +112,20 @@ ticket 文件存入 `.workflow/tickets/<id>-<slug>.md`，id 用三位数字序�
 flowchart LR
   subgraph W1["第 1 批 · 可立即开始"]
     T001["[001] init-db-schema<br/>Pi"]
-    T003["[003] research-auth-lib<br/>Claude"]
+    T003["[003] research-auth-lib<br/>Pi"]
+    T006["[006] design-auth-interface<br/>Harness"]
   end
   subgraph W2["第 2 批"]
-    T002["[002] user-model<br/>Claude"]
-    T004["[004] user-api<br/>Claude"]
+    T002["[002] user-model<br/>Pi"]
+    T004["[004] user-api<br/>Pi"]
   end
   subgraph W3["第 3 批"]
     T005["[005] login-ui<br/>AntiGravity"]
   end
   T001 --> T002
   T001 --> T004
+  T006 -->|"接口契约"| T002
+  T006 -->|"接口契约"| T004
   T002 -->|"共享 UserDTO"| T005
   T004 --> T005
 ```
@@ -131,11 +138,12 @@ flowchart LR
 ```markdown
 🟢 可立即开始
 - [001] init-db-schema → Pi
-- [003] research-auth-lib → Claude
+- [003] research-auth-lib → Pi
+- [006] design-auth-interface → DeepSeek Harness（架构决策，刀刃用）
 
-🟡 等待 [001]
-- [002] user-model → Claude
-- [004] user-api → Claude
+🟡 等待 [001] [006]
+- [002] user-model → Pi
+- [004] user-api → Pi
 
 🔴 等待 [002] [004]
 - [005] login-ui → AntiGravity

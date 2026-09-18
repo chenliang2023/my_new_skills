@@ -36,7 +36,7 @@ disable-model-invocation: true
 
 2. **整体 diff review**：在 CodeG 中打开项目文件夹，用 Git 面板查看所有已合并 ticket 的累计 diff
 
-3. **解决跨 ticket 冲突**：如果发现跨模块问题，在 CodeG 中开一个新会话，让 Claude 整体修复：
+3. **解决跨 ticket 冲突**：如果发现跨模块问题，在 CodeG 中开一个新 Pi 会话（手动会话默认入口；如涉及架构决策再升 Harness）整体修复：
    ```
    以下 ticket 已合并但存在跨模块冲突：
    - [002] user-model

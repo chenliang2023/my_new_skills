@@ -6,7 +6,7 @@
 
 | 环境 | 角色 | 工具 | 职责 |
 |------|------|------|------|
-| **本机 (Windows + VS Code)** | 规划端 | Claude Code (VS Code 插件) | 研究、探索、规划、文档产出 |
+| **本机 (Windows + VS Code)** | 规划端 | GitHub Copilot (VS Code) | 研究、探索、规划、文档产出 |
 | **服务器** | 执行端 | [CodeG](https://github.com/xintaofei/codeg) | 多 agent 并发开发、代码实现 |
 
 核心思路：本机负责"想清楚"，服务器负责"做出来"。两端通过项目仓库中的 `.workflow/` 目录同步上下文文档，通过 CodeG 的 Skill 管理同步 skills。
@@ -17,11 +17,11 @@
 
 | Agent | 定位 | 适用任务 |
 |-------|------|----------|
-| **Claude Code** | 主力实现（重推理） | 核心业务逻辑、架构敏感代码、安全敏感代码、需要强推理的实现 |
-| **Pi** | 主力实现（重产出） | 标准业务代码、CRUD、服务层、API 端点、脚手架、配置文件 |
+| **DeepSeek Harness** | 重推理（刀刃用，最贵） | 架构决策、安全敏感、需要权衡取舍的实现路径 |
+| **Pi** | 覆盖最广（默认路由，手动会话入口） | 标准业务代码、CRUD、服务层、API 端点、脚手架、配置、verify |
 | **Google Antigravity** | 前端/交互 | UI 组件、交互逻辑、样式实现 |
 
-Claude 和 Pi 都是主力实现 agent，分界在推理密度：需要架构决策给 Claude，spec 明确照做给 Pi。三个 agent 可并发执行互不依赖的 ticket；有依赖关系的 ticket 按阻塞边顺序执行。
+Harness 和 Pi 都会做实现，分界在推理密度：需要架构决策或安全敏感给 Harness，spec 明确照做给 Pi。三个 agent 可并发执行互不依赖的 ticket；有依赖关系的 ticket 按阻塞边顺序执行。**默认路由是 Pi**，避免 Harness 被滥用——具体规则见 `/route-agent`。
 
 ### CodeG 的并发机制
 
@@ -54,8 +54,8 @@ CodeG 自带完整的任务管理和并发控制，你不需要重复造轮子�
                                           │
                                      /dispatch (在 To-dos 面板创建任务)
                                           │
-                                    ┌─────┴────┬─────────────┐
-                                   Claude    PI    Antigravity
+                                    ┌─────┴─────┬──────────────┐
+                                   Harness    Pi    Antigravity
                                     (各自独立 worktree 并发执行)
                                           │
                                      CodeG Review (逐个 review diff)
@@ -114,7 +114,7 @@ CodeG 使用共享 skill 存储（`~/.codeg/skills/`），通过 skill-and-agent
 # 1. 把本仓库的 skills/ 下所有 skill 文件夹复制到服务器 ~/.codeg/skills/
 # 2. 在 CodeG Settings → Skill Packs → Custom 矩阵中启用给对应 agent
 #    - engineering 类 skill 给所有三个 agent
-#    - planning 和 dispatch 类 skill 只给 Claude Code
+#    - planning 和 dispatch 类 skill 只给 Pi（手动会话默认入口）
 ```
 
 详见 `/setup-workflow` skill。

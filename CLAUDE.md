@@ -26,7 +26,9 @@ Skills 按 bucket 文件夹组织：
 
 ## Agent 阵列
 
-服务器端三个并发 agent：Claude Code（主力实现-重推理）、Pi（主力实现-重产出）、Google Antigravity（前端/交互）。
+服务器端三个并发 agent：**DeepSeek Harness**（重推理，刀刃用，最贵，只接架构决策 / 安全敏感 ticket）、**Pi**（覆盖最广，默认路由；手动会话默认入口）、**Google Antigravity**（前端/交互）。
+
+路由规则详见 [`skills/dispatch/route-agent/SKILL.md`](skills/dispatch/route-agent/SKILL.md "skills/dispatch/route-agent/SKILL.md")：默认 `===` Pi，**只有架构决策或安全敏感才升 Harness**。
 
 ## 主工作流
 

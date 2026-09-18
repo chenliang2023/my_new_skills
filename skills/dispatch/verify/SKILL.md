@@ -52,7 +52,7 @@ CodeG 的 Task settings → Worktree tab 有一个 **Preflight command** 字段�
 
 ### 方式 A：开一个新会话手动跑（推荐）
 
-在 CodeG 中打开项目文件夹，开一个新的 Claude Code 会话：
+在 CodeG 中打开项目文件夹，开一个新的 Pi 会话（手动会话默认入口）：
 ```
 请运行以下验证命令并报告结果：
 1. tsc --noEmit
@@ -66,7 +66,7 @@ CodeG 的 Task settings → Worktree tab 有一个 **Preflight command** 字段�
 在 To-dos 面板创建一个任务：
 - Title：`[verify] 全量验证`
 - Description：上述验证清单
-- Agent：Claude
+- Agent：Pi
 - Start
 
 完成后在 Review 列查看结果。

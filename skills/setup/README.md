@@ -4,4 +4,4 @@
 
 ## Skills
 
-- **[setup-workflow](./setup-workflow/SKILL.md)**：首次配置双环境工作流。设置文档目录、确认 CodeG 服务器与本机的路径映射、配置 CodeG 的 Task settings（并发限制、preflight、worktree）和 Skill 启用矩阵。每个项目运行一次。
+- **[setup-workflow](./setup-workflow/SKILL.md)**：首次启用本工作流。**只**创建 `.workflow/` 目录与最小 `config.json`（路径类字段）。服务端相关配置（CodeG Task settings、Skill 矩阵、agent 安装）由用户在 CodeG 端自行配置。每个项目运行一次。

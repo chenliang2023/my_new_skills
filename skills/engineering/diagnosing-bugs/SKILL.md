@@ -7,6 +7,19 @@ description: 系统性调试。当遇到 bug、测试失败或意外行为时使
 
 遇到难搞的 bug：第一眼看不出来的、间歇性 flake、两个已知良好状态之间潜入的 regression。本 skill 把调试纪律封装成分阶段循环。
 
+## 产物落点
+
+跑完本 skill 的五个阶段，文件落在这些位置：
+
+```
+.workflow/bugs/
+├── repros/<date>-<slug>.md            # 阶段 1 产出：复现命令
+├── postmortems/<date>-<slug>.md       # 阶段 5 产出：根因 + 防同类再次发生
+└── tickets/<id>-fix-<slug>.md         # 修复 ticket（由 /to-tickets 在阶段 4 产出）
+```
+
+bug fix ticket **不归档**——bug ticket 按发现时间长期留存，便于追溯。归档是 `/version` 的事，由该 skill 在 release 节点按范围挑出"该 release 涉及到的 bug fix ticket"，归档到 `archive/v<version>/bug-tickets/`。
+
 ## 核心原则：先有反馈循环再修复
 
 **不要在建立紧凑反馈循环之前提出修复方案。**

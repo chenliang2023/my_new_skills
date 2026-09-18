@@ -45,11 +45,18 @@ disable-model-invocation: true
 
 一个起始场景，产生工作后汇入主流程。
 
-- **首次在项目上启用本工作流** → **`/setup-workflow`**。配置 `.workflow/config.json`、在 CodeG 中设置 Task settings、启用 skills 给对应 agent。每个项目运行一次。
+- **首次在项目上启用本工作流** → **`/setup-workflow`**。只创建 `.workflow/` 目录与最小 `config.json`；CodeG 端的 Task settings、Skill 矩阵、agent 安装由用户在 CodeG 里自己配。每个项目运行一次。
 
 - **收到外部 bug 报告或需求** → 直接在 CodeG 的 To-dos 面板创建任务，选 agent 执行。不需要走 grill/spec/ticket 流程。或者从 GitHub/GitLab issue 通过 CodeG 的 Repository 面板创建任务。
 
 - **服务器上 agent 跑出的代码有 bug** → **`/diagnosing-bugs`**。先建紧凑反馈循环（一个命令现在就红），再分阶段定位根因，最后写 regression 测试修复。
+- **开发到一半发现 bug（不管来源：自己写的、之前 ticket 合并的、外部报的）** → 走 bug 修复工作流：
+  1. **`/diagnosing-bugs`** 跑一遍五阶段（反馈循环 → 定位 → 根因 → 修复 → post-mortem）。复现命令写到 `.workflow/bugs/repros/`、postmortem 写到 `.workflow/bugs/postmortems/`
+  2. 写一个 fix ticket 走 **`/to-tickets`**，写到 `.workflow/bugs/tickets/`（不走 `.workflow/tickets/`，避免污染 feature 批次）
+  3. **`/dispatch`** 派 Pi 执行（涉及架构或安全再升 Harness）
+  4. **`/verify`** 跑回归，确认没把别的弄坏
+  5. 修完决定要不要切版本（`/version`，重大修复或 BREAKING 时跑；版本归档时按范围挑出相关 bug fix ticket 一并搬进 `archive/v<version>/bug-tickets/`）
+  不在这一支线上"打补丁直接 commit"——bug 修复必须走 ticket，原因：留下 regression 测试、留下 post-mortem、留下 commit history。
 
 - **需要技术调研才能决定方向** → **`/research`**。派后台 agent 查 primary source，产出 Markdown 文件，结果回来后决定是继续 grill 还是直接 spec。
 
@@ -75,6 +82,7 @@ disable-model-invocation: true
 
 - **`/setup-workflow`**：首次配置。每个项目运行一次。
 - **`/route-agent`**：独立运行可预检所有 ticket 的 agent 分派。也可被 `/dispatch` 调用。
+- **`/version`**：release 节点调用，跑在 `/verify` 通过之后。生成 CHANGELOG、bump 版本号、打 git tag。
 
 ## 快速决策树
 
@@ -101,7 +109,15 @@ disable-model-invocation: true
 │   └─ /setup-workflow
 │
 ├─ 遇到 bug
-│   └─ /diagnosing-bugs
+│   └─ 走 bug 修复工作流
+│       ├─ /diagnosing-bugs（建反馈循环 + 定位 + 修复）
+│       ├─ /to-tickets（出 fix ticket，小改直接进 / 大改先 /to-spec）
+│       ├─ /dispatch（默认 Pi；架构/安全升 Harness）
+│       ├─ /verify（确认回归）
+│       └─ /version（重大修复或 BREAKING 时切版本）
+│
+├─ 要发版 / 切版本
+│   └─ /version（前提：/verify 已通过；发版后自动归档当前批次到 .workflow/version/archive/v<version>/，并追加 history.md）
 │
 └─ 不知道从哪开始
     └─ 你在这里。看完上面的决策树，选一条路。

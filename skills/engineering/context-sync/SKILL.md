@@ -36,14 +36,14 @@ CodeG 有两种 skill 管理方式：
 
 **方式 B：直接写入 agent 目录**
 - CodeG 的 Settings → Skills 页面
-- 直接写入某个 agent 的 skills 目录（如 Claude Code 的 `~/.claude/skills/`）
+- 直接写入某个 agent 的 skills 目录（如 Pi 的 `~/.codeg/skills/`，或本机 VS Code 的 `~/.claude/skills/`）
 - 适合 agent 专属 skill
 
 **同步策略**：
 - 把本仓库 `skills/` 下的所有 skill 放入服务器的 `~/.codeg/skills/`
-- 在 CodeG 的 Skill Packs → Custom 矩阵中，把 planning 和 setup 类 skill 只启用给 Claude Code（因为本机 VS Code 端用的也是 Claude Code）
-- engineering 类 skill 启用给所有三个 agent（Claude / Pi / AntiGravity）
-- dispatch 类 skill 只启用给 Claude Code（由用户在服务器端手动调用）
+- 在 CodeG 的 Skill Packs → Custom 矩阵中，把 planning 和 setup 类 skill 只启用给 Pi（手动会话默认入口）
+- engineering 类 skill 启用给所有三个 agent（DeepSeek Harness / Pi / AntiGravity）
+- dispatch 类 skill 只启用给 Pi（由用户在服务器端手动调用）
 
 ## 同步规则
 

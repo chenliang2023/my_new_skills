@@ -23,6 +23,8 @@ disable-model-invocation: true
 
 3. **写 spec**：用下面的模板写，然后存入 `.workflow/specs/<feature-name>.md`。
 
+   spec 文件是**当前批次**的：发版时（`/version` 触发归档）会与对应版本的 feature ticket 一起搬到 `.workflow/version/archive/v<version>/specs/`。所以写 spec 时**不**追求历史完整、只覆盖本次要做的；历史由归档路径串联。
+
    spec 的两个读者都要照顾到，按 `/readable-docs` 执行。人读它是为了确认「这就是我要的东西」，agent 读它是为了知道边界在哪。前者做不到，spec 再精确也没用。
 
 ## spec 模板

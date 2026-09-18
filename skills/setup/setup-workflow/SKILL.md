@@ -1,137 +1,98 @@
 ---
 name: setup-workflow
-description: 首次配置双环境工作流。设置文档目录、确认 CodeG 服务器与本机的路径映射、配置 CodeG 的 Task settings 和 Skill 启用。每个项目运行一次。
+description: 首次在本项目上启用本工作流。只需要创建 .workflow/ 下的目录与最小 config.json（路径类字段）。服务端相关配置（CodeG Task settings、Skill 矩阵、agent 安装）由用户自行在 CodeG 里配，不归本 skill 管。每个项目运行一次。
 disable-model-invocation: true
 ---
 
 # Setup Workflow
 
-首次在某个项目上启用本工作流时运行。它收集该项目的配置信息并写入配置文件，后续 skill 读取该配置。
+首次在某个项目上启用本工作流时运行。**本 skill 只做一件事：创建 `.workflow/` 目录结构与最小 config.json。**
+
+服务端相关配置（CodeG To-dos Task settings、Skill Packs 矩阵、agent 安装与认证、preflight command 等）由用户在 CodeG UI 里自行配置，**不在本 skill 范围内**。
 
 ## 采集的配置
 
 向用户逐一询问以下问题，将答案写入 `.workflow/config.json`：
 
-1. **文档目录**：spec 和 ticket 文件存放的目录。默认 `.workflow/tickets/`。
+1. **文档目录**：ticket 文件存放的目录。默认 `.workflow/tickets/`。
 2. **研究文档目录**：research 产出存放的目录。默认 `.workflow/research/`。
-3. **服务器仓库路径**：CodeG 服务器上该项目的仓库路径。
-4. **本机仓库路径**：本机上该项目的仓库路径。
-5. **Agent 路由偏好**：用户对三个 agent（Claude / PI / AntiGravity）的分派偏好。可选填一个默认分派规则表，也可留空由 `/route-agent` 自动判断。
-6. **Git 分支策略**：ticket 开发使用的分支命名模板。默认 `ticket/<id>-<slug>`。
-7. **CodeG Task settings**：并发限制、preflight command、worktree location 等 CodeG 特定配置。
+3. **spec 文档目录**：to-spec 产出存放的目录。默认 `.workflow/specs/`。
+4. **交接文档目录**：本机↔服务器交接文件存放的目录。默认 `.workflow/handoffs/`。
+5. **版本目录**：版本管理根目录。默认 `.workflow/version/`。
+6. **bug 目录**：bug 修复根目录。默认 `.workflow/bugs/`。
+7. **归档目录**：历史版本归档（每个版本号一个子目录）。默认 `.workflow/version/archive/`。
+8. **Git 分支策略**：ticket 开发的分支命名模板。默认 `ticket/<id>-<slug>`。
+
+**不采集**（详见"不在本 skill 范围内"段）：
+
+- 服务器仓库路径、本机仓库路径——用户自己心里有数，写进 `~/.bashrc` / `~/.zshrc` 的环境变量更合适
+- agent 路由偏好——`/route-agent` 内嵌规则，不读 config.json
+- CodeG Task settings / Skill 矩阵 / agent 安装——属于服务端 UI 配置
 
 ## 生成目录结构
 
 ```
 .workflow/
-  config.json          # 上述配置
-  tickets/             # to-tickets 产出的 ticket 文件
+  config.json          # 路径类最小配置
+  tickets/             # 当前批次的 feature ticket
   research/            # research 产出的调研文档
-  specs/               # to-spec 产出的 spec 文件
-  handoffs/            # 交接文件（本机→服务器、服务器→本机）
+  specs/               # 当前批次的 spec 文件
+  handoffs/            # 交接文件（本机↔服务器）
+
+  version/             # 版本管理根目录
+    tickets/           #   当前 release 的 release ticket
+    specs/             #   当前 release 的 release notes 草稿、bump 计划
+    decisions/         #   当前 release 的 bump 决策记录
+    tags/              #   当前 release 的 tag 镜像
+    archive/           #   历史版本归档（每个版本号一个子目录）
+      v1.0.0/
+        specs/         #     该版本发布涉及的 spec 文件
+        tickets/       #     该版本涉及的所有 feature ticket
+      v1.1.0/
+        ...
+    history.md         #   版本流水台账（按版本号顺序追加）
+
+  bugs/                # bug 修复根目录
+    repros/            #   diagnosing-bugs 阶段 1：复现命令
+    postmortems/       #   阶段 5：根因 + 防同类再次发生
+    tickets/           #   bug fix ticket（不归档）
 ```
 
 ## config.json 模板
 
 ```json
 {
-  "docs_dir": ".workflow/tickets",
+  "tickets_dir": ".workflow/tickets",
   "research_dir": ".workflow/research",
   "specs_dir": ".workflow/specs",
   "handoffs_dir": ".workflow/handoffs",
-  "server_repo_path": "",
-  "local_repo_path": "",
-  "branch_template": "ticket/<id>-<slug>",
-  "agent_routing": {
-    "claude": ["complex-logic", "architecture", "core-domain", "security"],
-    "pi": ["crud", "service-layer", "api-endpoint", "scaffold", "config", "migration"],
-    "antigravity": ["ui", "interaction", "styling"]
-  },
-  "codeg": {
-    "max_concurrent_tasks": 3,
-    "process_automatically": true,
-    "preflight_command": "npm test",
-    "worktree_location": "",
-    "merge_strategy": "squash",
-    "delete_worktree_after_merge": true
-  }
+  "version_dir": ".workflow/version",
+  "bugs_dir": ".workflow/bugs",
+  "archive_dir": ".workflow/version/archive",
+  "branch_template": "ticket/<id>-<slug>"
 }
 ```
 
-## CodeG 端配置步骤
+字段都是路径模板，没有服务端配置。如果用户后续要加字段，按"路径类 vs 服务端 UI"区分后再决定是否进 config.json。
 
-除了写入 config.json，还需要在 CodeG 中做以下配置：
+## 不在本 skill 范围内
 
-### 1. 打开项目文件夹
+下面这些由用户在 CodeG 端自己配，不归本 skill 管：
 
-在 CodeG 中打开项目文件夹（project root，不是 worktree）。CodeG 需要 project root 才能创建 task worktree。
-
-### 2. Task settings
-
-在 To-dos 面板的 Task settings 中：
-
-- **General tab**：
-  - Default agent：Claude Code（主力 agent，可按 ticket 覆盖）
-  - Process automatically：开启，让任务自动领取
-  - Max concurrent tasks：3（或按需调整）
-
-- **Merge tab**：
-  - Default merge strategy：Squash（每个 ticket 合并为一个 commit）
-  - Merge automatically：关闭（你想逐个 review）
-  - Delete the worktree after merging：开启
-
-- **Worktree tab**：
-  - Worktree location：留空（默认在项目旁边）或指定集中存放位置
-  - Worktree init command：如 `pnpm install`
-  - Preflight command：如 `npm test`（任务进入 review 时自动运行）
-
-- **Prompts tab**（可选）：
-  - All stages：`遵循 AGENTS.md / CLAUDE.md 中的约定`
-  - Task run：`参考 .workflow/tickets/ 下的对应 ticket 文件`
-  - Merge：`用 Conventional Commits 格式写 commit message`
-
-### 3. Skills 启用
-
-在 Settings → Skill Packs → Custom 中：
-
-1. 把本仓库 `skills/` 下的 skill 文件夹复制到服务器的 `~/.codeg/skills/`
-2. 在 skill-and-agent 矩阵中启用：
-
-| Skill | Claude Code | PI | AntiGravity |
-|-------|-------------|-----|-------------|
-| readable-docs | ✓ | ✓ | ✓ |
-| tdd | ✓ | ✓ | ✓ |
-| diagnosing-bugs | ✓ | ✓ | ✓ |
-| code-review | ✓ | ✓ | ✓ |
-| context-sync | ✓ | ✓ | ✓ |
-| grill-me | ✓ | - | - |
-| research | ✓ | - | - |
-| to-spec | ✓ | - | - |
-| to-tickets | ✓ | - | - |
-| dispatch | ✓ | - | - |
-| route-agent | ✓ | - | - |
-| integrate | ✓ | - | - |
-| verify | ✓ | - | - |
-| setup-workflow | ✓ | - | - |
-
-原则：
-- engineering 类 skill 给所有 agent（它们需要遵守工程规范）
-- planning 和 dispatch 类 skill 只给 Claude Code（用户手动调用的编排 skill）
-
-### 4. Agent 安装确认
-
-在 CodeG 中确认三个 agent 已安装并认证：
-- Claude Code
-- Pi
-- Google Antigravity
+- **CodeG 项目文件夹**：在 CodeG 中打开（不是 worktree）。
+- **CodeG Task settings**：Default agent、Max concurrent tasks、Process automatically、preflight command 等。
+- **CodeG Skill Packs 矩阵**：哪些 skill 启用给哪个 agent。详见 `engineering/context-sync/SKILL.md` 的同步原则。
+- **agent 安装与认证**：DeepSeek Harness、Pi、Google Antigravity 各自在 CodeG 里配置。
+- **agent 路由偏好**：`/route-agent` 内嵌规则（详见 `dispatch/route-agent/SKILL.md`），不需要写到 config.json。如果用户**坚持**要自定义覆盖，写在 config.json 的 `agent_routing` 字段里，route-agent 会优先读用户配置。
 
 ## 检查清单
 
-- [ ] `.workflow/` 目录已创建
-- [ ] `config.json` 已写入且字段完整
-- [ ] 用户确认了 agent 路由偏好（或选择留空）
-- [ ] CodeG 中项目文件夹已打开
-- [ ] CodeG 的 Task settings 已配置
-- [ ] CodeG 的 Skills 已启用给对应 agent
-- [ ] 三个 agent 已安装并认证
-- [ ] 告知用户下一步运行 `/grill-me` 开始规划
+- [ ] `.workflow/` 目录已创建（含 version/、bugs/、version/archive/ 子目录）
+- [ ] `config.json` 已写入（7 个路径类字段）
+- [ ] 告知用户下一步：在 CodeG 端自行配置 Task settings / Skill 矩阵 / agent 安装，然后运行 `/grill-me` 开始规划
+
+## 后续
+
+- 想加字段 → 先想清楚"是路径类配置还是服务端 UI 配置"。前者加进 config.json；后者别加，到 CodeG 那边配
+- 想换路径模板 → 改 config.json + 跑一次迁移脚本（自行处理存量 ticket 路径）
+- 想清掉 config.json → 不推荐，会让所有依赖路径的 skill 退回默认值（详见各 skill 的"前提"段）
