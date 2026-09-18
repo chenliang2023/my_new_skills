@@ -23,7 +23,7 @@ disable-model-invocation: true
    - 每个 ticket 声明 **阻塞边**：它依赖哪些其它 ticket 先完成。
    - 互不依赖的 ticket 可以并发分派给不同 agent。
 
-3. **agent 分派建议**：为每个 ticket 标注建议的 agent（DeepSeek Harness / Pi / AntiGravity）。可以自己判断，或者不确定时调 `/route-agent` 自动判（默认 Pi）。`/route-agent` 内嵌规则；如果用户在 `config.json` 里写了 `agent_routing` 覆盖项，以覆盖项为准。
+3. **agent 分派建议**：为每个 ticket 标注建议的 agent（agent 列表从 `.workflow/agents.json` 查）。`## 建议 Agent` 字段写 agent `id`（kebab-case），不要写 `display_name`。不确定时调 `/route-agent` 自动判；`/route-agent` 基于 `agents.json` 的 tags + cost_tier 路由。
 
 4. **写 ticket 文件**：每个 ticket 一个文件，写入 `.workflow/tickets/`。注意：
 
@@ -34,6 +34,9 @@ disable-model-invocation: true
 ## ticket 模板
 
 ```markdown
+<!-- status: todo | dispatched | done | blocked -->
+<!-- released: <version>  （feature ticket 在 /version 发版时由 agent 自动填；bug fix ticket 同样机制） -->
+
 # [<ticket-id>] <标题>
 
 ## 📌 Spec 引用
@@ -55,7 +58,7 @@ disable-model-invocation: true
 - 或：无（可立即开始）
 
 ## 🤖 建议 Agent
-<DeepSeek Harness | Pi | AntiGravity>
+<agent-id（从 .workflow/agents.json 查，不要写 display_name）>
 理由：<一句话>
 
 ## 🌿 分支
@@ -111,16 +114,16 @@ ticket 文件存入 `.workflow/tickets/<id>-<slug>.md`，id 用三位数字序�
 ```mermaid
 flowchart LR
   subgraph W1["第 1 批 · 可立即开始"]
-    T001["[001] init-db-schema<br/>Pi"]
-    T003["[003] research-auth-lib<br/>Pi"]
-    T006["[006] design-auth-interface<br/>Harness"]
+    T001["[001] init-db-schema<br/>pi"]
+    T003["[003] research-auth-lib<br/>pi"]
+    T006["[006] design-auth-interface<br/>harness"]
   end
   subgraph W2["第 2 批"]
-    T002["[002] user-model<br/>Pi"]
-    T004["[004] user-api<br/>Pi"]
+    T002["[002] user-model<br/>pi"]
+    T004["[004] user-api<br/>pi"]
   end
   subgraph W3["第 3 批"]
-    T005["[005] login-ui<br/>AntiGravity"]
+    T005["[005] login-ui<br/>antigravity"]
   end
   T001 --> T002
   T001 --> T004
@@ -131,23 +134,27 @@ flowchart LR
 ```
 ````
 
+> 节点上的 agent 名字是当前 `.workflow/agents.json` 里的一个**示例**；不同项目该图不一样。
+
 如果拆分结果很小，两三个 ticket，图可以省掉，直接用文字说清谁先谁后。
 
 同时给一份可复制的分派清单，让用户能直接照着在 CodeG 里建任务：
 
 ```markdown
 🟢 可立即开始
-- [001] init-db-schema → Pi
-- [003] research-auth-lib → Pi
-- [006] design-auth-interface → DeepSeek Harness（架构决策，刀刃用）
+- [001] init-db-schema → pi
+- [003] research-auth-lib → pi
+- [006] design-auth-interface → harness（架构决策，刀刃用）
 
 🟡 等待 [001] [006]
-- [002] user-model → Pi
-- [004] user-api → Pi
+- [002] user-model → pi
+- [004] user-api → pi
 
 🔴 等待 [002] [004]
-- [005] login-ui → AntiGravity
+- [005] login-ui → antigravity
 ```
+
+> 上面这些 id 是示例；真正写 ticket 时按当前 `agents.json` 的 `id` 字段填。
 
 ## 回报给用户
 

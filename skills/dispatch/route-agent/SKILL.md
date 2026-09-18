@@ -1,154 +1,134 @@
 ---
 name: route-agent
-description: 根据 ticket 内容自动判断应分派给哪个 CodeG agent（DeepSeek Harness / Pi / Google AntiGravity）。供 /dispatch 调用，也可独立运行做路由预检。
+description: 根据 ticket 内容自动判断应分派给哪个 CodeG agent。读 .workflow/agents.json（agent 注册表，由 /setup-agents 管理）做基于 tags + cost_tier 的动态路由，不硬编码 agent 名。供 /dispatch 调用，也可独立运行做路由预检。
 ---
 
 # Route Agent
 
 当一个 ticket 没有明确的 `## 建议 Agent` 字段，或用户想覆盖默认路由时，用本 skill 自动判断。
 
+## 设计原则
+
+- **数据驱动**：本 skill **不硬编码任何 agent 名**。agent 表在 `.workflow/agents.json` 里（由 `/setup-agents` 管理），改 agent 配置只动那一个文件，本 skill 自动按新表路由
+- **按成本兜底**：当 ticket 模糊到无法匹配明确标签时，从能匹配的 agent 里选 `cost_tier` 最便宜的——保护资源，与"刀刃上用 expensive agent"哲学一致
+- **单入口**：手动 skill（grill-me / to-spec / to-tickets / dispatch / verify 等）只走 `agents.json` 里 `manual_entry: true` 的那一个 agent
+
 ## 规则来源（优先级从高到低）
 
 1. **ticket 文件里的 `## 建议 Agent` 字段**（`/to-tickets` 已经写过；这一级最高）
-2. **用户写在 `.workflow/config.json` 里的 `agent_routing` 覆盖项**（项目级偏好；可选）
-3. **本 skill 内嵌规则**（默认 Pi；架构决策 / 安全敏感升 Harness；前端 → AntiGravity）
+2. **基于 ticket 关键词 + agents.json tags 匹配**（见下方路由算法）
+3. **cost_tier 兜底**（从匹配到的 agent 里选最便宜的）
 
-`config.json` 的覆盖项结构：
-
-```json
-{
-  "agent_routing": {
-    "harness": ["architecture", "security", "core-domain-decision"],
-    "pi": ["crud", "service-layer", "api-endpoint", "scaffold", "config", "migration", "verify", "research"],
-    "antigravity": ["ui", "interaction", "styling"]
-  }
-}
-```
-
-如果 `agent_routing` 写得不完整（缺某 agent 的标签数组），缺失的部分回到本 skill 内嵌规则。
-
-## 设计原则
-
-**DeepSeek Harness 比较贵，只用在刀刃上**。它只接两类 ticket：
-
-1. 需要 agent 自己做出**架构决策**的（接口设计、模块边界、权衡取舍、需要拍板的多方案对比）
-2. **安全敏感**的（认证、加密、权限、密钥、token 处理、合规审计）
-
-**判断边界**：
-
-- 如果 ticket 已经把"做什么 / 不做什么"写清楚了，**不要**走 Harness，让 Pi 干
-- 如果 ticket 出现"待定 / 待评估 / 视情况 / 后续决定"之类的占位词，**必须**走 Harness
-- 如果是中等复杂度的实现但**不涉及架构或安全**，下放 Pi
-
-其它一律下放给 Pi 或 AntiGravity。**默认路由是 Pi**，不是 Harness（与原 Claude 默认策略不同）。
-
-## 三个 Agent 的路由规则
-
-### 🐳 DeepSeek Harness（重推理，刀刃用，最贵）
-
-**强项**：复杂推理、长上下文理解、架构敏感代码。
-
-**只接两类 ticket**：
-
-- 涉及**架构决策**：接口设计、模块边界、需要权衡取舍的实现路径
-- **安全敏感**：认证、加密、权限、密钥、token 处理
-
-**不接**：
-
-- 任何 spec 已经写清楚的实现（无论看起来多大规模）
-- 标准 CRUD / 服务层 / DTO / 迁移文件
-- 任何可以读完任务直接动手的 ticket
-- 多模块中等复杂度的实现（前提是不需要架构决策）→ 下放 Pi
-
-### ⚡ Pi（覆盖最广，默认路由）
-
-**强项**：快速产出标准业务代码、服务层、API 端点、调研、配置、跑命令。
-
-**路由到 Pi 的信号**：
-
-- 标准业务逻辑（CRUD、列表/详情/编辑）
-- 服务层、API 端点实现
-- DTO / schema 定义
-- 数据库迁移文件
-- 配置文件、环境变量设置
-- 脚手架、项目初始化
-- 多模块中等复杂度的实现（前提是不需要架构决策）
-- 技术调研、文档查证（不需要强推理的）
-- **verify / 集成测试 / 跑命令报告结果** 等手动会话（默认入口；遇到架构级疑问再升 Harness）
-
-### 🎨 AntiGravity（前端/交互）
-
-**强项**：UI 组件、交互逻辑、样式。
-
-**路由到 AntiGravity 的信号**：
-
-- React/Vue/前端组件
-- CSS / 样式实现
-- 交互逻辑（拖拽、动画、表单）
-- 响应式布局
-- 前端状态管理
+> 本 skill **不**用 `config.json` 里的 `agent_routing` 字段——该字段已废弃，被 `agents.json` 取代。
 
 ## 路由算法
 
-1. 读取 ticket 的 `## 任务` 和 `## 验收标准`
-2. 判断是否安全敏感（认证/加密/权限/密钥）→ **Harness**
-3. 判断是否需要架构决策（读完任务后 agent 还需要做选择/权衡/接口设计）→ **Harness**
-4. 判断是否前端/UI → **AntiGravity**
-5. 其它全部 → **Pi**（默认）
-6. 如果 ticket 模糊到连前端/安全/架构都无法判断，**仍然路由到 Pi**，让 Pi 在实现过程中暴露问题，再升 Harness
+按顺序检查每条规则，第一条命中就用：
 
-> 与原策略的反转：原 Claude 路线下"无法判断时默认路由到 Claude（保守）"，现在默认路由到 Pi（成本优先），等 Pi 暴露问题再升 Harness。
+### 规则 1：明确关键词 → 强制昂贵档
 
-## Pi vs Harness 的分界
+ticket 任务描述包含以下关键词时，**强制路由到 `cost_tier: expensive` 且对应 tag 的那个**：
 
-| 维度 | Pi | DeepSeek Harness |
-|------|----|-----------------|
-| 推理密度 | 中低（spec 已明确或读完能做） | 高（需要权衡、推理、做架构选择） |
-| 不确定性 | 低（路径清晰） | 高（路径不清晰，需要 agent 决策） |
-| 代码量 | 大小都行（标准模式大量产出） | 中（核心逻辑、决策点） |
-| 架构影响 | 低（动实现，不动接口） | 高（动接口、模块边界） |
-| 安全敏感 | 否 | 是 |
-| 成本 | 低 | 高 |
+| 关键词 | tag | 说明 |
+|--------|-----|------|
+| `认证` / `鉴权` / `auth` / `authorization` / `login` | `security` | 安全敏感 |
+| `密钥` / `加密` / `token` / `secret` / `credentials` | `security` | 安全敏感 |
+| `权限` / `permission` / `role-based` | `security` | 安全敏感 |
+| `架构` / `接口设计` / `权衡` / `trade-off` / `选型` | `architecture` | 架构决策 |
+| `module boundary` / `重构策略` / `breaking change design` | `architecture` | 架构决策 |
 
-**经验法则**：
+如果多个 agent 都标了对应 tag，**选最便宜的**（在 expensive 范围内挑便宜的）。
 
-- 如果 ticket 的 `## 任务` 读完后 agent 还需要自己**设计接口或选型** → Harness
-- 如果读完就能直接写代码（无论代码量大小）→ Pi
-- 如果不确定是否安全敏感或架构敏感 → 倾向 Pi，让实现暴露问题再升级
+### 规则 2：领域关键词 → 匹配 tags
 
-## 升级路径（Pi → Harness）
+| 关键词 | 匹配 tag |
+|--------|---------|
+| `前端` / `组件` / `UI` / `CSS` / `样式` / `动画` / `交互` | `frontend-design` / `frontend-impl` / `ui` / `interaction` / `styling` |
+| `CRUD` / `服务层` / `API 端点` / `DTO` / `迁移` / `脚手架` | `crud` / `service-layer` / `api-endpoint` / `scaffold` / `migration` |
+| `配置` / `环境变量` / `CI/CD` | `config` |
+| `调研` / `research` / `查文档` | `research` |
+| `verify` / `跑测试` / `构建` | `verify` |
 
-如果在 Pi 实现过程中发现：
+命中后从匹配 agent 里按 `cost_tier` 选最便宜的。
+
+### 规则 3：占位词 → 强制昂贵档
+
+ticket 任务描述里出现以下任一占位词（说明 ticket 没写清楚）：
+
+`待定` / `待评估` / `视情况` / `后续决定` / `TBD` / `TODO: 设计` / `placeholder`
+
+→ 强制路由到 `cost_tier: expensive` 的 agent（刀刃用，避免低档 agent 自己拍板错误决策）。
+
+### 规则 4：兜底
+
+如果规则 1、3 都没匹配上、规则 2 也没明确标签：
+
+- 从 `agents.json` 里**所有** agent 中按 `cost_tier` 选最便宜的（cheap > medium > expensive）
+- 如果最便宜的 agent 都没有任何 tag（纯空标签），报错让用户跑 `/setup-agents` 补 tag
+
+## tag 匹配与 cost_tier 的组合
+
+```text
+匹配流程：
+1. 扫 ticket 关键词
+2. 收集命中的 tag 集合
+3. 在 agents.json 里找 tag 集合 ⊆ agent.tags 的所有 agent
+4. 如果命中多个 agent：
+   a. 如果规则要求"强制昂贵档" → 在 cost_tier=expensive 的命中 agent 里选最便宜的
+   b. 否则 → 在所有命中 agent 里按 cost_tier 选最便宜的（cheap > medium > expensive）
+5. 如果命中 0 个 agent → 走规则 4 兜底
+```
+
+## 输出格式
+
+每条 ticket 给一个判断：
+
+```
+Ticket: [003] implement-search-ranking
+建议 Agent: pi
+理由: spec 已明确排序字段和返回结构，标准服务层实现，匹配 tag: service-layer；cost_tier=medium
+```
+
+```
+Ticket: [007] design-auth-interface
+建议 Agent: harness
+理由: 命中关键词"鉴权"+"选型"；强制昂贵档 → harness（cost_tier=expensive）；tags: security, architecture
+```
+
+## 升级路径（兜底档 → 昂贵档）
+
+如果某个 ticket 在实现过程中发现：
 
 - 需要改 ticket 没提到的接口或模块边界
 - 遇到认证/权限相关的隐藏约束
 - 决策空间超出 spec
 
-立即在 ticket 上把 `## 建议 Agent` 改成 Harness，重新走 `/dispatch`。**不要硬撑**，但**也不要一开始就升**，先让 Pi 尝试。
-
-## 输出格式
-
-```
-Ticket: [003] implement-search-ranking
-建议 Agent: Pi
-理由: spec 已明确排序字段和返回结构，标准服务层实现，照做即可
-```
-
-```
-Ticket: [007] design-auth-interface
-建议 Agent: DeepSeek Harness
-理由: 涉及认证接口设计，属于安全敏感 + 需要架构决策
-```
+立即在 ticket 上把 `## 建议 Agent` 改成对应昂贵档 agent 的 `id`，重新走 `/dispatch`。**不要硬撑**，但**也不要一开始就升**——先让便宜档 agent 尝试，暴露问题再升。
 
 ## 作为独立 skill 运行
 
 用户可对所有 ticket 预跑一遍路由，查看分派全景：
 
 ```
-[001] init-db-schema        → Pi
-[002] user-auth-logic       → DeepSeek Harness
-[003] implement-search      → Pi
-[004] search-ui             → AntiGravity
-[005] refactor-data-layer   → Pi（中等复杂度，无架构决策）
-[006] auth-token-middleware → DeepSeek Harness（安全敏感）
+[001] init-db-schema        → pi     (tags: scaffold; medium)
+[002] user-auth-logic       → harness (tags: security; expensive)
+[003] implement-search      → pi     (tags: service-layer; medium)
+[004] search-ui             → antigravity (tags: frontend-design; medium)
+[005] refactor-data-layer   → pi     (tags: crud; medium)
+[006] auth-token-middleware → harness (tags: security; expensive)
 ```
+
+> 注：以上 agent id 取决于当前 `.workflow/agents.json` 的内容。改 agent 表后这条样本就过时。
+
+## 反模式
+
+- 🚫 **本 skill 写死 agent 名**：agent 表改了，本 skill 不该跟着改
+- 🚫 **强制某条 ticket 走昂贵档**：昂贵档是规则驱动（规则 1 / 3），不是手动覆盖
+- 🚫 **多个 agent 同时 `manual_entry: true`**：会让本 skill 的"单入口"逻辑失效
+- 🚫 **ticket 写"## 建议 Agent: <display_name>"**：用 `id` 写，否则 rename 后引用会断
+
+## 与其它 skill 的衔接
+
+- **`/setup-agents`** 改 agent 表；本 skill 自动按新表路由
+- **`/dispatch`** 读本 skill 的输出，生成 CodeG To-dos
+- **`/to-tickets`** ticket 模板里 `## 建议 Agent` 字段写 agent `id`

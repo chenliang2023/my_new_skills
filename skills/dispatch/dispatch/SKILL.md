@@ -1,6 +1,6 @@
 ---
 name: dispatch
-description: 读取 .workflow/tickets/ 中未完成的 ticket，按阻塞边拓扑顺序，在 CodeG 的 To-dos 面板中创建任务并分派给对应 agent。在服务器端 CodeG 中运行。
+description: 读取 .workflow/tickets/ 中未完成的 ticket，按阻塞边拓扑顺序，在 CodeG 的 To-dos 面板中创建任务并分派给对应 agent（agent 列表来自 .workflow/agents.json）。在服务器端 CodeG 中运行。
 disable-model-invocation: true
 ---
 
@@ -24,7 +24,8 @@ CodeG 自带完整的任务管理系统，你不不需要重复造轮子：
 
 - `.workflow/tickets/` 中有 ticket 文件
 - `.workflow/config.json` 存在
-- CodeG 中已安装并配置好三个 agent：DeepSeek Harness、Pi、AntiGravity
+- `.workflow/agents.json` 存在（agent 注册表，由 `/setup-agents` 管理）
+- CodeG 中已安装并配置好 `agents.json` 里的全部 agent
 - 项目文件夹已在 CodeG 工作区中打开
 
 ## 流程
@@ -61,7 +62,9 @@ CodeG 自带完整的任务管理系统，你不不需要重复造轮子：
 在 ticket 文件顶部把状态从 `todo` 改为 `dispatched`，附上 agent 名和分派时间：
 
 ```
-<!-- status: dispatched to:harness via:codeg-todos at:2026-09-15T10:30:00 -->
+<!-- status: dispatched to:<agent-id> via:codeg-todos at:2026-09-15T10:30:00 -->
+
+> `<agent-id>` 从 `agents.json` 的 `id` 字段取值；保持 kebab-case，不要写 `display_name`。
 ```
 
 ### 5. 利用 CodeG 的并发
@@ -84,17 +87,19 @@ CodeG 自带完整的任务管理系统，你不不需要重复造轮子：
 
 ### 模式 B：`@` 委托（适合主从型任务）
 
-一个主 agent（如 Pi 处理业务实现，或 Harness 处理架构决策时）在单个会话中用 `@` 委托子任务给其它 agent。适合：
+一个主 agent（在当前 `agents.json` 里 `manual_entry: true` 的那个，通常负责业务实现）在单个会话中用 `@` 委托子任务给其它 agent。适合：
 - 一个 ticket 需要多 agent 协作完成
-- 主 agent 负责架构（通常是 Harness），子 agent 负责具体实现（Pi / AntiGravity）
+- 主 agent 负责业务串联，子 agent 负责具体实现（昂贵档 agent 处理架构决策）
 - 你希望在一个会话中看到全部进度
 
-操作：在 Pi 会话（手动会话默认入口）中，输入类似：
+操作：在 manual_entry agent 会话中，输入类似：
 ```
 请实现 [003] implement-search 功能。
-@Harness 请你同时设计 [004] search-dto 的接口（这是架构决策）。
-@AntiGravity 请你同时实现 [005] search-ui 组件。
+@<architecture-agent-id> 请你同时设计 [004] search-dto 的接口（这是架构决策）。
+@<frontend-agent-id> 请你同时实现 [005] search-ui 组件。
 ```
+
+`<architecture-agent-id>` / `<frontend-agent-id>` 用对应 agent 的 `id`（从 `agents.json` 里查，不要写 `display_name`）。
 
 子 agent 各自并行运行，结果汇回主会话。
 
@@ -113,9 +118,11 @@ CodeG 自带完整的任务管理系统，你不不需要重复造轮子：
 
 ### ✅ 已创建 To-do
 
-- 🤖 [002] user-model → DeepSeek Harness
-- 🤖 [003] config-dto → Pi
-- 🎨 [006] search-ui → AntiGravity
+- 🤖 [002] user-model → harness（DeepSeek Harness）
+- 🤖 [003] config-dto → pi（Pi）
+- 🎨 [006] search-ui → antigravity（Google Antigravity）
+
+> 显示名从 `agents.json` 查；分派 ID 用 agent `id`，与 ticket 的 `## 建议 Agent` 字段对齐。
 
 ### ⏳ 等待中（阻塞未满足）
 

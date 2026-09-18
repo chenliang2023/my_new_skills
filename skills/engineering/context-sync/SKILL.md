@@ -36,14 +36,16 @@ CodeG 有两种 skill 管理方式：
 
 **方式 B：直接写入 agent 目录**
 - CodeG 的 Settings → Skills 页面
-- 直接写入某个 agent 的 skills 目录（如 Pi 的 `~/.codeg/skills/`，或本机 VS Code 的 `~/.claude/skills/`）
+- 直接写入某个 agent 的 skills 目录（如某个 agent 的 `~/.codeg/skills/`，或本机 VS Code 的 `~/.claude/skills/`）
 - 适合 agent 专属 skill
 
 **同步策略**：
 - 把本仓库 `skills/` 下的所有 skill 放入服务器的 `~/.codeg/skills/`
-- 在 CodeG 的 Skill Packs → Custom 矩阵中，把 planning 和 setup 类 skill 只启用给 Pi（手动会话默认入口）
-- engineering 类 skill 启用给所有三个 agent（DeepSeek Harness / Pi / AntiGravity）
-- dispatch 类 skill 只启用给 Pi（由用户在服务器端手动调用）
+- 在 CodeG 的 Skill Packs → Custom 矩阵中，把 planning 和 setup 类 skill 只启用给 `agents.json` 里 `manual_entry: true` 的那个 agent
+- engineering 类 skill 启用给 `agents.json` 里**所有** agent（agent 列表变化时本规则自动跟着变）
+- dispatch 类 skill 只启用给 manual_entry agent（由用户在服务器端手动调用）
+
+> agent 列从 `.workflow/agents.json` 渲染；agent 增删后这里**不需要手动改**，只在新加 agent 的 CodeG 安装与认证做一次。
 
 ## 同步规则
 

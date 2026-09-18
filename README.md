@@ -13,7 +13,9 @@
 
 ## 服务器端 Agent 阵列 (CodeG)
 
-在 CodeG 上配置三个并发 agent，按任务类型分派：
+Agent 列表由 `.workflow/agents.json` 管理（**用户可增删改**，不绑定到固定三 agent）。改 agent 表只动这一个文件，跑 `/setup-agents`。
+
+以下是仓库默认表（仅供参考，你可以全部替换）：
 
 | Agent | 定位 | 适用任务 |
 |-------|------|----------|
@@ -21,7 +23,7 @@
 | **Pi** | 覆盖最广（默认路由，手动会话入口） | 标准业务代码、CRUD、服务层、API 端点、脚手架、配置、verify |
 | **Google Antigravity** | 前端/交互 | UI 组件、交互逻辑、样式实现 |
 
-Harness 和 Pi 都会做实现，分界在推理密度：需要架构决策或安全敏感给 Harness，spec 明确照做给 Pi。三个 agent 可并发执行互不依赖的 ticket；有依赖关系的 ticket 按阻塞边顺序执行。**默认路由是 Pi**，避免 Harness 被滥用——具体规则见 `/route-agent`。
+路由基于 `agents.json` 的 `tags` + `cost_tier` 动态决定，**不硬编码到具体 agent 名**。规则详见 `/route-agent`。多个 agent 可并发执行互不依赖的 ticket；有依赖关系的 ticket 按阻塞边顺序执行。
 
 ### CodeG 的并发机制
 
@@ -55,7 +57,7 @@ CodeG 自带完整的任务管理和并发控制，你不需要重复造轮子�
                                      /dispatch (在 To-dos 面板创建任务)
                                           │
                                     ┌─────┴─────┬──────────────┐
-                                   Harness    Pi    Antigravity
+                                   <agents.json 里的 agent 列表>
                                     (各自独立 worktree 并发执行)
                                           │
                                      CodeG Review (逐个 review diff)

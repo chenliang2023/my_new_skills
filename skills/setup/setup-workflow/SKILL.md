@@ -48,14 +48,17 @@ disable-model-invocation: true
       v1.0.0/
         specs/         #     该版本发布涉及的 spec 文件
         tickets/       #     该版本涉及的所有 feature ticket
+        bug-tickets.md     #     该版本涉及的所有 bug fix ticket 索引（指针清单）
+        bug-repros.md     #     该版本涉及的所有复现命令索引（指针清单）
+        bug-postmortems.md #     该版本涉及的所有 postmortem 索引（指针清单）
       v1.1.0/
         ...
-    history.md         #   版本流水台账（按版本号顺序追加）
+    history.md               #   版本流水台账（按版本号顺序追加）
 
   bugs/                # bug 修复根目录
     repros/            #   diagnosing-bugs 阶段 1：复现命令
     postmortems/       #   阶段 5：根因 + 防同类再次发生
-    tickets/           #   bug fix ticket（不归档）
+    tickets/           #   bug fix ticket（永久留存，按时间索引；按 release 范围做索引式归档，不实体搬迁）
 ```
 
 ## config.json 模板
@@ -82,8 +85,8 @@ disable-model-invocation: true
 - **CodeG 项目文件夹**：在 CodeG 中打开（不是 worktree）。
 - **CodeG Task settings**：Default agent、Max concurrent tasks、Process automatically、preflight command 等。
 - **CodeG Skill Packs 矩阵**：哪些 skill 启用给哪个 agent。详见 `engineering/context-sync/SKILL.md` 的同步原则。
-- **agent 安装与认证**：DeepSeek Harness、Pi、Google Antigravity 各自在 CodeG 里配置。
-- **agent 路由偏好**：`/route-agent` 内嵌规则（详见 `dispatch/route-agent/SKILL.md`），不需要写到 config.json。如果用户**坚持**要自定义覆盖，写在 config.json 的 `agent_routing` 字段里，route-agent 会优先读用户配置。
+- **agent 安装与认证**：`.workflow/agents.json` 里每个 agent 都在 CodeG 里安装并认证。改 agent 表请跑 `/setup-agents`。
+- **agent 注册表**：放 `.workflow/agents.json`（不是 config.json）。由 `/setup-agents` 管理，route-agent / dispatch / verify 自动按新表路由。
 
 ## 检查清单
 

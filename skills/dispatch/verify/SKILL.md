@@ -52,7 +52,7 @@ CodeG 的 Task settings → Worktree tab 有一个 **Preflight command** 字段�
 
 ### 方式 A：开一个新会话手动跑（推荐）
 
-在 CodeG 中打开项目文件夹，开一个新的 Pi 会话（手动会话默认入口）：
+在 CodeG 中打开项目文件夹，开一个新的会话，agent 选 `agents.json` 里 `manual_entry: true` 的那个：
 ```
 请运行以下验证命令并报告结果：
 1. tsc --noEmit

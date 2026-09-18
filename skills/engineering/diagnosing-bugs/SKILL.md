@@ -18,7 +18,13 @@ description: 系统性调试。当遇到 bug、测试失败或意外行为时使
 └── tickets/<id>-fix-<slug>.md         # 修复 ticket（由 /to-tickets 在阶段 4 产出）
 ```
 
-bug fix ticket **不归档**——bug ticket 按发现时间长期留存，便于追溯。归档是 `/version` 的事，由该 skill 在 release 节点按范围挑出"该 release 涉及到的 bug fix ticket"，归档到 `archive/v<version>/bug-tickets/`。
+bug fix ticket **实体不归档，按时间永久留存**——`.workflow/bugs/tickets/` 是 bug ticket 的全量索引，不能搬走。但 `/version` 在 release 节点会：
+
+1. 按 commit 范围挑出"该 release 涉及到的 bug fix ticket"
+2. 给每条 ticket 顶部加 `<!-- released: v<version> -->` 标签
+3. 在 `archive/v<version>/bug-tickets.md` 写一份索引（指针清单，指向 `.workflow/bugs/tickets/` 原文件）
+
+这样"按 release 查修了哪些 bug"和"按时间查所有 bug ticket"两条检索路径都能用。
 
 ## 核心原则：先有反馈循环再修复
 

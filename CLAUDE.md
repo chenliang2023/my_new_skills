@@ -26,9 +26,15 @@ Skills 按 bucket 文件夹组织：
 
 ## Agent 阵列
 
-服务器端三个并发 agent：**DeepSeek Harness**（重推理，刀刃用，最贵，只接架构决策 / 安全敏感 ticket）、**Pi**（覆盖最广，默认路由；手动会话默认入口）、**Google Antigravity**（前端/交互）。
+服务器端 agent 列表由 `.workflow/agents.json` 管理（用户可增删改，不绑定到固定三个 agent）。改 agent 表只动这一个文件，跑 `/setup-agents`。
 
-路由规则详见 [`skills/dispatch/route-agent/SKILL.md`](skills/dispatch/route-agent/SKILL.md "skills/dispatch/route-agent/SKILL.md")：默认 `===` Pi，**只有架构决策或安全敏感才升 Harness**。
+仓库默认表：
+
+- **DeepSeek Harness**（重推理，刀刃用，最贵，只接架构决策 / 安全敏感 ticket）
+- **Pi**（覆盖最广，手动会话默认入口）
+- **Google Antigravity**（前端/交互）
+
+路由基于 `agents.json` 的 `tags` + `cost_tier` 动态决定，规则详见 [`skills/dispatch/route-agent/SKILL.md`](skills/dispatch/route-agent/SKILL.md "skills/dispatch/route-agent/SKILL.md")。默认按最便宜的 cost_tier 兜底；命中"架构决策 / 安全敏感 / 占位词"等关键词时升昂贵档。
 
 ## 主工作流
 

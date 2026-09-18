@@ -170,7 +170,7 @@ tag 完不要立刻走，跑一遍 verify 确认版本号相关的：
 #### 7.1 归档当前批次
 
 ```bash
-VERSION="v2.1.0"   # 不带 v 前缀的版本号，供目录名用
+VERSION="v2.1.0"   # 带 v 前缀的版本号（与 git tag 一致）
 ARCHIVE=".workflow/version/archive/${VERSION#v}"
 
 mkdir -p "$ARCHIVE/specs" "$ARCHIVE/tickets"
@@ -191,16 +191,118 @@ done
 ```
 .workflow/version/archive/v2.1.0/
 ├── specs/                  # 该版本发布涉及的所有 spec 文件
-└── tickets/                # 该版本涉及的所有 feature ticket
+├── tickets/                # 该版本涉及的所有 feature ticket
+├── bug-tickets.md          # 该版本涉及的所有 bug fix ticket 索引（指针清单）
+├── bug-repros.md           # 该版本涉及的所有复现命令索引（指针清单）
+└── bug-postmortems.md      # 该版本涉及的所有 postmortem 索引（指针清单）
 ```
 
 归档原则：
 
 - spec：当前批次在 `.workflow/specs/` 下的全部文件都搬（spec 是一次性的，发布完就过时）
 - feature ticket：只搬 `status: done` 的，未 done 的（如被 block、还在 dispatch 中）**不搬**，留到下个版本
-- bug fix ticket：归档与否**按 release 范围**——如果该 release 涉及到的 bug fix ticket 一并归档（搬到 `archive/v2.1.0/bug-tickets/`，与 feature ticket 分开）。如果想保持 bug ticket 全程可追溯、不进归档，跳过这一步
+- bug fix ticket：**索引式归档，不实体搬迁**——见 7.4
 
-#### 7.2 写归档目录里的版本说明
+#### 7.2 找出本 release 涉及的 bug fix ticket
+
+bug fix ticket 的"是否属于本 release"靠 commit 时间范围判断：
+
+```bash
+LAST_TAG=$(git describe --tags --abbrev=0 2>/dev/null || echo "")
+if [ -z "$LAST_TAG" ]; then
+  RANGE="HEAD"
+else
+  RANGE="$LAST_TAG..HEAD"
+fi
+
+# 找出本 release commit 范围内触及 .workflow/bugs/ 的 commit
+git log "$RANGE" --pretty=format:"%H" -- .workflow/bugs/ | sort -u > /tmp/release-commits.txt
+
+# 从 commit 信息里抓 ticket id（约定 bug fix ticket id 形如 042-fix-xxx）
+BUG_TICKETS=()
+for hash in $(cat /tmp/release-commits.txt); do
+  msg=$(git log -1 --pretty=format:"%s" "$hash")
+  for id in $(echo "$msg" | grep -oE '\[[0-9]{3}\]' | tr -d '[]'); do
+    [ -f ".workflow/bugs/tickets/${id}-fix-"*.md ] && BUG_TICKETS+=("$id")
+  fi
+done
+printf '%s\n' "${BUG_TICKETS[@]}" | sort -u > /tmp/this-release-bug-tickets.txt
+```
+
+或者更直接：**让 agent 在跑 `/version` 时询问用户**"本次 release 包含哪些 bug fix"，把用户给定的 ticket id 列表作为输入。自动化脚本只是兜底。
+
+#### 7.3 给 bug ticket 打 released 标签
+
+对每个识别出的 bug fix ticket，在文件顶部的状态行下方加一行：
+
+```markdown
+<!-- status: done -->
+<!-- released: v2.1.0 -->
+```
+
+不要改 status，不要删内容，只在 frontmatter 区加一行。这样从 `.workflow/bugs/tickets/` 全量查的时候，每条 ticket 自报家门。
+
+#### 7.4 写 bug-tickets 索引文件
+
+在归档目录里生成 `bug-tickets.md`（不复制 ticket 实体）：
+
+```markdown
+# v2.1.0 包含的 bug fix
+
+本 release 涉及到的 bug fix ticket 清单。实体仍在 `.workflow/bugs/tickets/`。
+
+## 清单
+
+- [042] search-flake（[.workflow/bugs/tickets/042-fix-search-flake.md](../../bugs/tickets/042-fix-search-flake.md)）
+  - 复现：[.workflow/bugs/repros/2026-08-12-search-flake.md](../../bugs/repros/2026-08-12-search-flake.md)
+  - postmortem：[.workflow/bugs/postmortems/2026-08-15-search-flake.md](../../bugs/postmortems/2026-08-15-search-flake.md)
+- [089] token-expire（[.workflow/bugs/tickets/089-fix-token-expire.md](../../bugs/tickets/089-fix-token-expire.md)）
+  - 复现：[.workflow/bugs/repros/2026-08-30-token-expire.md](../../bugs/repros/2026-08-30-token-expire.md)
+  - postmortem：[.workflow/bugs/postmortems/2026-09-02-token-expire.md](../../bugs/postmortems/2026-09-02-token-expire.md)
+```
+
+**为什么不复制 ticket 实体？**
+
+- bug ticket 是按时间索引的（`.workflow/bugs/tickets/` 是全量历史），不能搬走
+- 跨路径"按 release 查"和"按时间全量查"都能用，是两条独立检索路径
+- 索引文件足够小，Git 友好，跨平台无差异
+- 比起 feature ticket 的 `mv` 是有意的差别：feature ticket 发完版就没用了（下次开发是新的），bug ticket 全程保留（统计趋势、追责需要）
+
+#### 7.5 写 bug-repros 索引文件
+
+复现命令与 bug ticket 是同一个 bug 的两个切片，bug fix ticket 索引里已经引用了 repros，但 repros 单独看也有价值（"v2.1.0 集中修了哪些复现命令"），所以也起一个索引：
+
+```markdown
+# v2.1.0 包含的 bug 复现命令
+
+本 release 涉及到的复现命令清单。实体仍在 `.workflow/bugs/repros/`。
+
+## 清单
+
+- [042] search-flake 复现（[.workflow/bugs/repros/2026-08-12-search-flake.md](../../bugs/repros/2026-08-12-search-flake.md)）
+  - 对应 ticket：[.workflow/bugs/tickets/042-fix-search-flake.md](../../bugs/tickets/042-fix-search-flake.md)
+- [089] token-expire 复现（[.workflow/bugs/repros/2026-08-30-token-expire.md](../../bugs/repros/2026-08-30-token-expire.md)）
+  - 对应 ticket：[.workflow/bugs/tickets/089-fix-token-expire.md](../../bugs/tickets/089-fix-token-expire.md)
+```
+
+#### 7.6 写 bug-postmortems 索引文件
+
+postmortem 是 bug 修复的根因分析，是追溯事故最有价值的资产，必须独立索引：
+
+```markdown
+# v2.1.0 包含的 bug postmortem
+
+本 release 涉及到的 postmortem 清单。实体仍在 `.workflow/bugs/postmortems/`。
+
+## 清单
+
+- [042] search-flake postmortem（[.workflow/bugs/postmortems/2026-08-15-search-flake.md](../../bugs/postmortems/2026-08-15-search-flake.md)）
+  - 对应 ticket：[.workflow/bugs/tickets/042-fix-search-flake.md](../../bugs/tickets/042-fix-search-flake.md)
+- [089] token-expire postmortem（[.workflow/bugs/postmortems/2026-09-02-token-expire.md](../../bugs/postmortems/2026-09-02-token-expire.md)）
+  - 对应 ticket：[.workflow/bugs/tickets/089-fix-token-expire.md](../../bugs/tickets/089-fix-token-expire.md)
+```
+
+#### 7.7 写归档目录里的版本说明
 
 在归档目录下加一个 `README.md`，作为该版本的总览入口：
 
@@ -209,8 +311,15 @@ done
 
 ## 包含内容
 
-- 3 个 spec
-- 12 个 feature ticket（含 2 个 bug fix）
+- 3 个 spec（见 `specs/`）
+- 12 个 feature ticket（见 `tickets/`）
+- 2 个 bug fix（见 `bug-tickets.md`，含 repros / postmortems 指针）
+
+## 索引
+
+- [bug-tickets](./bug-tickets.md) — bug fix ticket 清单
+- [bug-repros](./bug-repros.md) — 复现命令清单
+- [bug-postmortems](./bug-postmortems.md) — postmortem 清单
 
 ## git tag
 
@@ -222,7 +331,7 @@ done
 - 修复 yyy
 ```
 
-#### 7.3 追加版本流水台账
+#### 8. 追加版本流水台账
 
 在 `.workflow/version/history.md` **末尾**追加一段（**不覆盖既有内容**）：
 
@@ -238,7 +347,7 @@ done
 
 每次发版都追加一段，不删不改历史。`history.md` 是 release 历史的唯一真相源——倒着追加，避免并发发版时的行号竞态。
 
-### 8. 通知
+### 9. 通知
 
 release 完成后告知用户：
 
