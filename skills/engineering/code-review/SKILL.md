@@ -25,11 +25,13 @@ disable-model-invocation: true
 
 ```yaml
 phase: review
-local: claude-code-opus
-server: codex-high
+local: codex-gpt
+server: <服务器上的 high agent>
 ```
 
 按当前机器取一条。优先选与 execution 阶段推荐不同的 agent，换一双眼睛看。同一台机器上只有那一个 agent 时照用，并注明是同 agent 自审。
+
+复审属于复杂档，**优先用这一侧 `strength: high` 的 agent**。审查是找错，比写代码更吃推理。本侧没有 high 时用最强者顶上并注明降级。
 
 缺推荐时运行 `/route-agent`。
 

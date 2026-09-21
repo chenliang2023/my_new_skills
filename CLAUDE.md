@@ -55,13 +55,17 @@ Skills 按 bucket 文件夹组织：
 | `id` | 稳定的 kebab-case 引用名 |
 | `harness` | 运行外壳，如 `claude-code`、`codex` |
 | `host` | `local` 或 `server` |
-| `strength` | `high`、`medium`、`low` |
+| `strength` | `high`、`medium`、`low`。决定它能接什么档位的活 |
 | `speed` | `fast`、`medium`、`slow` |
 | `tags` | 擅长领域 |
 
 `strength`、`speed`、`tags` 是主观判断，登记时向用户确认，不要凭 harness 名字猜。
 
+`strength` 是**优先顺序**：关键和复杂任务优先交给 `high`，`medium` 接常规，`low` 接机械。每台机器尽量至少有一条 `high`；本侧没有 high 时路由会用最强者顶上并注明降级，不会把 ticket 挂起来。
+
 本仓库的 `skills/setup/setup-agents/agents.baseline.json` 里有一份固定下来的基线名单，在项目里首次运行 `/setup-agents` 时复制成该项目的 `.workflow/agents.json`，再按实际情况增改。
+
+基线有一处可以补强：**服务器侧没有 `strength: high` 的 agent**，关键和复杂档 ticket 在服务器上会降级给 `oh-my-pi-gpt`（medium），路由会注明降级。流程不会卡住，服务器上真的接了重要活时再补一条 high 即可。
 
 不要记录任务系统、容量、并发数或安装路径。执行方式已经固定，这些维度不存在。
 
@@ -75,15 +79,26 @@ Skills 按 bucket 文件夹组织：
 
 ## 两条推荐
 
-每个 ticket 的 route 块给两条，独立计算：
+每个 ticket 的 route 块给两条，独立判断：
 
 ```yaml
 phase: execution
-local: claude-code-opus
-server: codex-high
+local: codex-gpt
+server: oh-my-pi-gpt
 ```
 
-`/route-agent` 按 `host` 过滤候选池，再按 tags 命中数、`strength`、`speed` 排序。phase 决定这三项的比较先后，`execution` 和 `verification` 先看 tags 和 speed，`planning`、`research`、`review` 先看 tags 和 strength。
+`/route-agent` 先给 ticket 定档位，再判断这一侧谁适合：
+
+| 档位 | 优先交给 |
+|------|----------|
+| 关键（认证、迁移、并发、疑难 bug） | `high` |
+| 复杂（跨模块重构、新架构、性能定位） | `high` |
+| 常规（单模块实现、加接口、补测试） | `medium` 及以上 |
+| 机械（重命名、格式化、文档） | 不限，优先 `fast` |
+
+这是优先顺序，不是通行证。本侧没有 `high` 时用本侧最强者顶上，并在报告里注明降级，不写 `manual` 把 ticket 挂起来。
+
+它是判断，不是计分：读 ticket 后说清「为什么它适合这件事」，而不是数 tags 命中数或拿 strength 和 speed 算总分。`speed` 只在机械档位和同档位内部起作用。
 
 `manual` 表示由当前会话或人工完成，不需要注册 agent。
 

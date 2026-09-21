@@ -1,20 +1,35 @@
 ---
 name: route-agent
-description: 读取 .workflow/agents.json，为每个 ticket 算出本机和服务器各自的最佳 agent，输出两条推荐。不硬编码机器名或 agent 名称。
+description: 读取 .workflow/agents.json，读 ticket 内容后判断谁真正适合，为本机和服务器各给一条推荐。关键是保证强模型承担关键与复杂任务，不用计分排序。
 ---
 
 # Route Agent
 
-ticket 需要两条推荐：**本机最佳** 和 **服务器最佳**。本 skill 负责算出来。
+ticket 需要两条推荐：**本机最佳** 和 **服务器最佳**。本 skill 负责判断出来。
 
-推荐只在两台机器各选一个 agent，不涉及任务系统、队列或 adapter。执行方式在整条工作流里已经固定为 git worktree，所以路由只需要回答一个问题：这台 ticket 交给谁。
+推荐只在两台机器各选一个 agent，不涉及任务系统、队列或 adapter。执行方式在整条工作流里已经固定为 git worktree，所以路由只需要回答一个问题：这件事交给谁最合适。
+
+## 这是判断，不是打分
+
+读 ticket，然后回答「这台机器上谁真正适合做这件事」。
+
+**不要用**「tags 命中数」这类计分方式排序，也不要拿 `strength` 和 `speed` 算总分。tags 和 strength 是判断的输入，不是分数。
+
+两条要求：
+
+- **关键和复杂任务优先交给 `strength: high` 的 agent。** 本侧有 high 就不要跳过它。
+- **本侧没有 high 时，用本侧最强的可用 agent 顶上去，在理由里注明降级。** 不写 `manual`，不把 ticket 挂起来。
+
+另外：**常规和机械任务要落在适合它的 agent 上。** 不要为了“保险”把小事推给最强的慢模型，也不要让不搭领域的 agent 硬接。
 
 ## 数据来源
 
 只有一份注册表：`.workflow/agents.json`。每个 agent 记录 `harness`、`model`、`host`、`strength`、`speed`、`tags`。
 
 - `host` 决定它属于哪台机器的候选池
-- `strength`、`speed`、`tags` 决定在池子里的排序
+- `strength` 决定它能接什么档位的活
+- `tags` 是领域线索，告诉你它擅长什么
+- `speed` 只在机械档位和同档位内部才起作用
 - 本机和服务器能力相同，不存在「这台机器不能做这个阶段」
 
 没有 runtime 注册表，也没有 adapter 概念。不要去找它们。
@@ -25,111 +40,134 @@ ticket 需要两条推荐：**本机最佳** 和 **服务器最佳**。本 skill
 
 ```yaml
 phase: execution
-local: claude-code-opus
-server: codex-high
+local: codex-gpt
+server: oh-my-pi-gpt
 ```
 
 - `local`、`server` 各写一个 agent id，或写 `manual`
-- 两条独立计算，互不参照。服务器选不出来时写 `manual`，不影响本机那条
-- `manual` 表示由当前会话或人工在这台机器上完成，不需要注册 agent
+- 档位和适合性理由写在预检报告里，不写进 ticket。ticket 只带两个值
+- 两条独立判断，互不参照
+- `manual` 只用于两种情况：本侧一个 agent 都没有，或用户明确要求由人工完成。**不是「本侧没有 high」的理由**
 
 `/to-tickets` 把这两条写进 ticket。`/dispatch` 按当前所在机器取其中一条。
 
-## 算法
+## 判断分三步
 
-对 `local` 和 `server` 各跑一遍同一套流程，只是候选池按 `host` 过滤。
+对 `local` 和 `server` 各跑一遍，候选池按 `host` 过滤。
 
-### 1. 读 ticket
+### 第一步：定档位
 
-拿到 `phase` 和任务内容。phase 决定评分权重，任务内容决定 tags 匹配。
+档位决定**优先交给什么样的人**。看 ticket 的 `## 🎯 任务`、`## ✅ 验收标准`、`## 🧩 上下文`，以及它阻塞了谁。
 
-| phase | 主要看 | 说明 |
-|-------|--------|------|
-| `planning` | `strength` | 需求澄清和拆分，判断力比速度重要 |
-| `research` | `strength` + `tags` | 需要读文档、读源码、下判断 |
-| `execution` | `tags` + `speed` | 领域匹配优先，其次看吞吐 |
-| `verification` | `speed` + `tags` | 跑命令为主，快一点有明显收益 |
-| `review` | `strength` | 挑错需要更强推理，且希望换一个 agent 来看 |
+| 档位 | 判据 | 优先级 |
+|------|------|----------|
+| **关键** | 认证、加密、权限、支付；数据迁移或破坏性 schema 变更；并发与一致性；无法稳定复现的疑难 bug | 优先 `high` |
+| **复杂** | 跨模块重构；新架构或新子系统；性能瓶颈定位；多子系统协调 | 优先 `high` |
+| **常规** | 单模块内实现功能、加接口、补测试、按已有模式扩展 | `medium` 及以上 |
+| **机械** | 重命名、格式化、改文档、改配置值、样板代码 | 不限，优先 `speed: fast` |
 
-### 2. 过滤候选池
+档位跟着**任务的实质**走，不跟 ticket 的体量走。一个只改十行代码的并发 bug 是关键档，一个写三百行样板的前端页面是常规档。
 
-按 `host` 取出这一侧的 agent。**不做任何淘汰**，`strength: low` 也留在池子里，只是排后面。
+判定拿不准时往高档靠，并在理由里说明你的顾虑。
 
-如果这一侧一个 agent 都没有，直接写 `manual`，说明原因。
+### 没有 high 时就降级，不要卡住
 
-### 3. 排序
+真实情况里本侧经常没有 high。这时候正常往下走：
 
-依次比较：
+1. 在本侧现有 agent 里选**最可能胜任**的那个（`medium` 优先，`low` 最后）
+2. 在理由里写清降级：
 
-1. **tags 命中数**：ticket 涉及的领域与 agent `tags` 的交集大小
-2. **strength**：`high` > `medium` > `low`
-3. **speed**：`fast` > `medium` > `slow`
+```text
+理由: 这个 ticket 是复杂档，理想是本侧 high；服务器侧只有 medium，
+      交给 oh-my-pi-gpt（medium）顶上，它擅长 backend
+      风险: 跨模块重构的判断力可能不够，如果发现方向反复就停下来报缺口
+```
 
-phase 会调整先后。`execution` 和 `verification` 先比 tags 再比 speed，strength 随后；`planning`、`research`、`review` 先比 tags 再比 strength，speed 随后。
+3. 如果降级后仍不放心，可以**额外**提一句「建议本侧补一条 high」，但不要因此挂起 ticket
 
-排序结果唯一时直接采用。前两名在 tags 命中数和 strength 上都相同时，也是并列，取 speed 更快者；speed 也相同时向用户报告并列，不要随便挑一个。
+**不要因为本侧没有 high 就写 `manual`。** 有人能接就用人，把缺口写在报告里，由用户决定要不要补 agent。
 
-### 4. 关键任务提高强度要求
+### 第二步：判断适合
 
-任务涉及以下任一情况时，`strength: low` 的 agent 在排序中降到所有 `high` 和 `medium` 之后，即使它的 tags 命中更多：
+过了档位判断后，在候选里选**真正适合这件事**的那个。逐个问自己：
 
-- 认证、加密、权限、支付
-- 数据迁移、破坏性变更、schema 调整
-- 并发、分布式一致性
-- 疑难 bug 的根因定位
+- 它擅长的领域和这个 ticket 对得上吗？前端活不要给只做后端的
+- 它的强项正好是这个 ticket 的难处吗？疑难 bug 要的是排查能力，不是出活速度
+- 这台机器上还有没有更能胜任的？如果有，为什么不是它
+- 一个 ticket 连续做了几步时，下一步是否该换人
+- `phase: review` 时是否该换一个眼睛？用 execution 同一个 agent 自审价值有限
 
-这仍然是排序规则，不是淘汰规则。这一侧只有 `low` 的 agent 时，可用它将就，并在输出里说明。
+`speed` 只在两处起作用：机械档位选谁，以及同档位内部都合格时谁先上。**不要让它盖过适合性判断。**
 
-### 5. review 阶段换人
+### 第三步：写理由
 
-`phase: review` 时，优先选与 `phase: execution` 推荐不同的 agent。同一台机器上如果只有那一个 agent，就照用，并注明「同 agent 自审」。
+理由要说清「为什么它适合这件事」。
+
+好理由：
+
+```text
+理由: 这个 ticket 要在 pg_trgm 和 tsvector 之间做取舍，属复杂档；
+      codex-gpt 是这一侧唯一的 high，且它的 debugging 标签对应这种需要读文档做判断的活
+```
+
+坏理由：
+
+```text
+理由: tags 命中 backend、test 两个（计分式，没说清为什么适合）
+理由: 它最快（把 speed 当成了决定因素）
+```
 
 ## 预检报告
 
-对一批 ticket 一次性输出：
+对一批 ticket 一次性输出。每行给出档位、两侧推荐、一句适合性理由：
 
 ```text
-[001] init-db-schema
-  phase: execution
-  local:  claude-code-opus      （tags 命中 schema、migration）
-  server: codex-high            （tags 命中 schema、migration）
+[001] 建搜索索引 + 迁移脚本
+  档位: 复杂（涉及 schema 变更和索引选型）
+  local:  codex-gpt       理由: 复杂档；它在本机是唯一 high，且擅长迁移类判断
+  server: oh-my-pi-gpt    理由: 本侧无 high，用最强者顶上；它擅长 backend
+                          ⚠️ 降级：复杂档交给 medium，重构方向反复就报出来
 
-[002] user-model
-  phase: execution
-  local:  claude-code-opus      （tags 命中 backend）
-  server: codex-high
+[002] 搜索 API
+  档位: 常规（按已有模式加接口）
+  local:  claude-domestic 理由: 常规档；它擅长 backend 且出活快，不必占用 codex-gpt
+  server: oh-my-pi-gpt    理由: 常规档对口，medium 足够
 
-[003] update-readme
-  phase: execution
-  local:  copilot-fast          （tags 命中 docs，fast）
-  server: manual                （服务器上没有 tags 命中 docs 的 agent）
+[003] 搜索 UI
+  档位: 常规
+  local:  claude-domestic 理由: 本机唯一覆盖前端
+  server: antigravity-gemini 理由: 它的前端强项正好对口
+
+[004] 更新 README
+  档位: 机械
+  local:  claude-domestic 理由: 机械档，但它已覆盖 docs 且是本机最快
+  server: oh-my-pi-gpt    理由: 两侧均可，它已覆盖 docs
 ```
 
-每行给一句理由，理由必须来自注册表里真实存在的字段，不要编。
+理由必须针对这个 ticket 说话，不要写成通用评价。
 
-## 并列和缺失怎么报告
+## 需要用户决定时
 
-并列：
+**两个候选真的难分：**
 
 ```text
-[007] design-auth-interface
-  phase: planning
-  local:  并列 claude-code-opus / other-high
-  server: 并列 codex-high / other-high
-  原因: 两组 tags 命中数和 strength 都相同，speed 也相同
-  需要用户决定: 选一个，或修改 agents.json 里的 tags 让它唯一
+[009] 重构搜索层
+  档位: 复杂
+  local:  难分 codex-gpt / other-high
+  原因: 两者都够强且领域都沾边，说不清谁更合适
+  需要用户决定: 选一个，或给 agents.json 补一条更具体的 tags
 ```
 
-这一侧没有 agent：
+**本侧一个 agent 都没有：**
 
 ```text
-[010] update-docs
-  phase: execution
-  local:  manual
-  server: manual
-  原因: agents.json 里没有任何 agent 的 tags 命中 docs
-  影响: 由当前会话或人工完成，没有 agent 承担
+[010] 修文档链接
+  档位: 机械
+  local:  copilot-fast
+  server: manual          理由: agents.json 里没有任何 host: server 的记录
 ```
+
+不要为了交差随便挑一个。说不清就说不清。
 
 ## ticket 里的值失效时
 
@@ -144,19 +182,26 @@ phase 会调整先后。`execution` 和 `verification` 先比 tags 再比 speed�
 
 ## 升级路径
 
-执行中发现 ticket 需要更强的 agent：
+执行中发现 ticket 的档位判断错了（实际比预期难）：
 
-1. 更新 ticket 的 `local:` 或 `server:`
-2. 重新运行本 skill 确认
-3. 如果这一侧没有更合适的 agent，如实说明，不要把 `manual` 说成「最优解」
+1. 把档位调高一档
+2. 本侧有 high 就换给它；没有 high 就维持当前 agent，并把这个缺口写进报告
+3. 卡住不动且方向反复时，停下来报缺口，不要硬耗
 
 ## 反模式
 
+- 🚫 用计分或排序的方式选 agent，而不是读 ticket 后判断谁适合
+- 🚫 本侧有 high 却没用上
+- 🚫 降级了但不写出来，让人以为这本就是最佳安排
+- 🚫 因为本侧没有 high 就写 `manual`，把能做的 ticket 挂起来
+- 🚫 为了省事把机械活推给最慢最强的 agent
+- 🚫 把 `speed` 当成主要决定因素
+- 🚫 把不搭领域的 agent 硬配给 ticket，只因为它闲着
 - 🚫 输出 runtime、adapter 或任务系统信息
 - 🚫 只给一条推荐
-- 🚫 因为 `strength: low` 就把 agent 从候选池里删掉
-- 🚫 两台机器用同一条推荐互相复制，不各自计算
-- 🚫 编造理由，写注册表里没有的 tags
+- 🚫 两台机器用同一条推荐互相复制，不各自判断
+- 🚫 编造理由，或写注册表里没有的 tags
+- 🚫 说不清谁更合适时随便挑一个
 - 🚫 在本 skill 里写死任何机器名、IP 或具体 agent id
 
 ## 与其它 skill 的衔接

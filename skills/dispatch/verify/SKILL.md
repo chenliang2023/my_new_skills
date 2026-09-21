@@ -22,8 +22,8 @@ disable-model-invocation: true
 
 ```yaml
 phase: verification
-local: copilot-fast
-server: codex-high
+local: claude-domestic
+server: oh-my-pi-gpt
 ```
 
 按当前机器取一条：
@@ -32,7 +32,7 @@ server: codex-high
 - 服务器就取 `server:`
 - `manual` 表示当前会话或人工执行
 
-缺推荐时先运行 `/route-agent`。不要沿用 execution 阶段的 agent，除非 `/route-agent` 算出来是同一个。
+验证属于常规档，`medium` 及以上都能做。缺推荐时先运行 `/route-agent`，不要沿用 execution 阶段的 agent，除非判断出来确实是同一个。
 
 ## 验证清单
 

@@ -36,15 +36,17 @@ flowchart LR
 
 ## agent 推荐怎么用
 
-每个 ticket 带两条推荐，独立计算：
+每个 ticket 带两条推荐，独立判断：
 
 ```yaml
 phase: execution
-local: claude-code-opus
-server: codex-high
+local: codex-gpt
+server: oh-my-pi-gpt
 ```
 
-`/route-agent` 按 `host` 过滤候选池，再按 tags 命中数、`strength`、`speed` 排序，phase 决定这三项的比较先后。
+`/route-agent` 先给 ticket 定档位，再判断这一侧谁适合。关键和复杂档**优先交给 `strength: high`**；本侧没有 high 就用最强者顶上并在理由里注明降级，不写 `manual` 把 ticket 挂起来。
+
+用判断，不用计分：说清「为什么它适合这件事」，而不是数 tags 命中数。`speed` 只在机械档位和同档位内部起作用。
 
 `/dispatch` 只看当前在哪台机器上跑，取对应那一条。值写 `manual` 表示由当前会话或人工完成。
 

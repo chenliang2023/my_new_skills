@@ -29,8 +29,10 @@ server: codex-high
 
 - 当前机器是 **本机**：取 `local:` 的值
 - 当前机器是 **服务器**：取 `server:` 的值
-- 值是 `manual`：由当前会话或人工执行，不启动外部 agent
+- 值是 `manual`：由当前会话或人工执行，不启动外部 agent。正常情况下它只出现在本侧确实没有 agent 的时候
 - 值指向不存在的 agent：停止这个 ticket 的分派，报告失效的 id，让用户运行 `/route-agent` 重算
+
+关键和复杂档的 ticket 优先给 `strength: high`。本侧只有 medium 时照样做，但要在输出里标出这是降级，别让人以为这本就是最佳安排。
 
 本 skill 不自己算推荐。缺推荐时先调用 `/route-agent`。
 
@@ -161,6 +163,9 @@ worktree 建好后更新 ticket 顶部：
 
 ### ⚠️ 未能分派
 - [007] auth-interface：`local:` 指向的 `old-agent` 已不在 agents.json，需运行 `/route-agent`
+
+### ⚠️ 降级提醒
+- [009] migration-safety：复杂档，但服务器侧无 `high`，已降级给 `oh-my-pi-gpt`（medium）
 
 ### 🔄 合并计划
 - 第 1 批合并顺序：[002] → [004]

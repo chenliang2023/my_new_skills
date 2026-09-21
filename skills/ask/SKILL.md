@@ -14,7 +14,9 @@ disable-model-invocation: true
 - **只有一份注册表**：`.workflow/agents.json`，记录本机和服务器上有哪些 agent。没有 runtime 或 adapter 注册表。
 - **本机和服务器能力相同**，都能规划、调研、执行、review 和验证。差别只在各自装了哪些 agent。
 
-所以路由只需要回答一个问题：这个 ticket 交给谁。每个 ticket 有两条推荐，`local` 一条、`server` 一条，执行时按当前所在机器取一条。
+所以路由只需要回答一个问题：这个 ticket 交给谁最合适。每个 ticket 有两条推荐，`local` 一条、`server` 一条，执行时按当前所在机器取一条。
+
+`/route-agent` 先给 ticket 定档位，再判断谁适合。关键和复杂档（认证、迁移、并发、跨模块重构、性能定位、疑难 bug）**优先交给 `strength: high`**；本侧没有 high 就用最强者顶上，并在理由里注明降级。这是判断，不是数 tags 计分。
 
 ## 主流程：规划 → 调研 → 执行 → review → 修 bug
 
@@ -81,7 +83,7 @@ flowchart LR
 
 1. 跳过 grill，先 `/diagnosing-bugs`
 2. 写 `hotfix-<date>-<seq>` ticket
-3. 选这台机器上 `speed: fast` 的 agent，快速出修复
+3. **先定档位**。线上事故大多是关键档，优先给本侧 `strength: high` 的 agent；本侧没有 high 就用最强者顶上并注明降级。纯改动性的小修复才是机械档，那时才优先 `speed`
 4. 修复后立即 `/verify`，必要时 `/version` 切 patch
 
 ### E. 换机器继续
@@ -138,7 +140,8 @@ flowchart LR
 /setup-agents
 ├─ 改 display_name / description ─→ 不影响任何 ticket
 ├─ 改 tags ─→ 影响后续推荐
-├─ 改 strength / speed ─→ 重新 /route-agent
+├─ 改 strength ─→ 改变它能优先接的档位，重新 /route-agent
+├─ 改 speed ─→ 只影响机械档位和同档位内部
 ├─ 改 host ─→ 两台机器的推荐都会变
 └─ 改 id ─→ 必须迁移所有 ticket 里的 local: 和 server: 引用
 ```
@@ -181,7 +184,7 @@ flowchart LR
 |-----------|------|
 | agents.json 的字段和登记流程 | `setup/setup-agents/SKILL.md` |
 | `.workflow/` 目录和路径配置 | `setup/setup-workflow/SKILL.md` |
-| 两条推荐的算法 | `dispatch/route-agent/SKILL.md` |
+| 路由的档位与适合性判断 | `dispatch/route-agent/SKILL.md` |
 | ticket 模板和 route 块 | `planning/to-tickets/SKILL.md` |
 | 执行顺序、worktree、工具建议、合并 | `dispatch/dispatch/SKILL.md` |
 | 验证清单和报告 | `dispatch/verify/SKILL.md` |

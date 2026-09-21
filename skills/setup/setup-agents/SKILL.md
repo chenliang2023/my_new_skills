@@ -21,10 +21,25 @@ disable-model-invocation: true
 一个 agent 只由三样东西定义：
 
 - **Harness**：用什么外壳跑它，例如 `claude-code`、`codex`、`copilot-cli`、`cursor`
-- **模型强弱** `strength`：`high`、`medium`、`low`
+- **模型强弱** `strength`：`high`、`medium`、`low`。它告诉路由这个 agent 适合接多难的活
 - **响应速度快慢** `speed`：`fast`、`medium`、`slow`
 
 再补上 `host` 说明它装在哪台机器上，`tags` 说明它擅长什么。
+
+### `strength` 决定优先交给谁
+
+`/route-agent` 会给每个 ticket 定一个档位，然后按 `strength` 决定优先交给谁：
+
+| 档位 | 优先 |
+|------|----------|
+| 关键（认证、迁移、并发、疑难 bug） | `high` |
+| 复杂（跨模块重构、新架构、性能定位） | `high` |
+| 常规（单模块实现、加接口、补测试） | `medium` 及以上 |
+| 机械（重命名、格式化、文档） | 不限 |
+
+这是**优先顺序，不是通行证**。本侧没有 `high` 时，路由会用本侧最强的那个顶上，把降级写进报告。不会因为缺 high 就把 ticket 挂起来。
+
+所以 `strength` 填错的代价是「强的活没人优先做」或「小事占用最强的慢模型」，而不是流程卡死。即便如此也不要凭 harness 名字猜。
 
 不记录任务系统、队列、面板、adapter 或其它运行机制。执行方式在整条工作流里只有一种：git worktree。所以 agent 记录里没有这些维度的位置。
 
@@ -86,7 +101,8 @@ disable-model-invocation: true
 - **只描述 agent 本身**：harness、模型强弱、速度、所在机器、擅长领域。不描述任务机制。
 - **一台机器一条记录**：同一个 harness 加同一个模型装在两台机器上，写两条，`host` 不同，`id` 也不同。
 - **稳定 ID**：kebab-case，全表唯一。ticket 用 `id` 引用，不用 `display_name`。
-- **强弱和速度只排序，不淘汰**：任何 phase 都不因为 `strength: low` 就排除一台机器，只是排到后面。
+- **`strength` 是优先顺序**：`high` 优先接关键和复杂任务，`medium` 接常规，`low` 接机械。填错不会卡流程，但会让活配得不合适。
+- **每台机器尽量有一条 `high`**：不是硬要求，但没有的话，关键 ticket 只能降级给本侧最强的 medium，效果打折扣。
 - **空表合法**：没有登记任何 agent 时，ticket 推荐 `manual`，由当前会话完成。
 
 ## 基线名单
@@ -95,10 +111,10 @@ disable-model-invocation: true
 
 | id | harness | model | host | strength | speed | 定位 |
 |----|---------|-------|------|----------|-------|------|
-| `codex-gpt` | codex | gpt | local | high | slow | 本机最强，架构、安全、疑难 bug |
-| `claude-domestic` | claude | deepseek 等国模 | local | medium | fast | 本机主力，常规实现、测试、文档 |
-| `oh-my-pi-gpt` | oh-my-pi | gpt | server | medium | medium | 服务器常规实现 |
-| `antigravity-gemini` | antigravity | gemini | server | medium | fast | 服务器前端主力 |
+| `codex-gpt` | codex | gpt | local | high | slow | 本机唯一 high，关键/复杂档优先给它 |
+| `claude-domestic` | claude | deepseek 等国模 | local | medium | fast | 常规与机械档主力 |
+| `oh-my-pi-gpt` | oh-my-pi | gpt | server | medium | medium | 服务器常规档，也是服务器上的降级况 |
+| `antigravity-gemini` | antigravity | gemini | server | medium | fast | 服务器前端专项 |
 
 首次在某个项目上运行时：
 
@@ -108,14 +124,16 @@ disable-model-invocation: true
 
 之后可以随时增改。基线只是一份起点，不是强制值。
 
-### 基线已知的缺口
+### 基线可以补强的地方
 
-**服务器上没有 `strength: high` 的 agent。** 架构决策、安全、疑难 bug 这类任务在服务器上只能落到 `medium`，而且 `execution` 阶段先比 speed，会优先选中 `antigravity-gemini`，即使它是前端定位。
+**服务器上没有 `strength: high` 的 agent。** 认证、数据迁移、并发、跨模块重构、性能定位这类 ticket 在服务器上会降级给 medium（默认是 `oh-my-pi-gpt`），路由会在理由里注明降级。
 
-需要改时二选一：
+流程不会卡住，但如果服务器上真的接了重要活，建议补一条 high。两种情况：
 
-- 服务器上加一条强模型记录，让架构类任务有去处
-- 把 `oh-my-pi-gpt` 改成 `strength: high`，前提是它实际担这个角色
+- 服务器上有更强的模型但没登记 → 补一条记录
+- 实际就 `oh-my-pi-gpt` 最强 → 把它改成 `strength: high`
+
+不补也能跑。先看实际用下来什么样再说。
 
 ## 字段说明
 
@@ -136,10 +154,10 @@ disable-model-invocation: true
 约束：
 
 - `id` 全表唯一。改 id 要迁移 ticket 里的引用。
-- 至少有一台机器要有 `strength: high` 的 agent，否则架构类 ticket 没有合适去处。
-- `tags` 可以重叠。重叠表示多个 agent 都能做，由 `/route-agent` 再按强弱、速度和领域匹配度决定顺序。
-- ticket 里的推荐必须引用这里存在的 `id`，或写 `manual`。`manual` 表示由当前会话或人工完成，不需要注册 agent。
-- 空数组是合法的，但这时所有 ticket 只能推荐 `manual`。
+- 每台机器尽量有一条 `strength: high`。没有也能运行，关键 ticket 会降级给本侧最强者。
+- `tags` 可以重叠。重叠表示多个 agent 都能做，由 `/route-agent` 再按适合性判断选哪个。
+- ticket 里的推荐必须引用这里存在的 `id`，或写 `manual`。
+- 空数组是合法的。这时这类 ticket 只能推荐 `manual`，或从那台机器手动跑。
 
 ## 流程
 
@@ -163,7 +181,8 @@ disable-model-invocation: true
 
 - 改 `display_name`、`description`：安全，不影响任何 ticket。
 - 改 `tags`：影响后续推荐，已写死 agent 的 ticket 不变。
-- 改 `strength`、`speed`：影响推荐排序，建议重新预检。
+- 改 `strength`：改变优先顺序。调低后关键 ticket 会转给别的 agent，或在本侧降级，先跑 `/route-agent` 预检。
+- 改 `speed`：只影响机械档位和同档位内部的选择。
 - 改 `host`：等于把 agent 搬到另一台机器，两台机器的推荐都会变。
 - 改 `id`：破坏性操作，要同步改所有 ticket 里的 `local:` 和 `server:` 值。
 
@@ -178,7 +197,7 @@ disable-model-invocation: true
 - 🚫 凭 harness 名字猜强弱和速度，不向用户确认
 - 🚫 在 agent 记录里写任务系统、队列、面板或 adapter 信息
 - 🚫 只登记本机，忘记服务器
-- 🚫 把 `strength` 或 `speed` 当过滤器用，这两个字段只参与排序，不参与淘汰
+- 🚫 把 `strength` 说成硬关卡，它实际是优先顺序，缺 high 只降级不阻塞
 - 🚫 把 agents.json 放进 .gitignore，它必须提交到 git
 
 ## 输出格式

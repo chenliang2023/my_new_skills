@@ -22,7 +22,7 @@ disable-model-invocation: true
 1. **读 spec**：识别实现功能需要的工作单元和外部行为
 2. **拆分**：每个 ticket 是一个 tracer bullet，端到端贯穿一个行为，不做横向切片
 3. **声明阻塞边**：列出必须先完成的 ticket，无依赖就写「无」
-4. **路由**：为这个 ticket 算出本机和服务器各自的推荐 agent。有明确理由时直接写；交给 `/route-agent` 算时先留空
+4. **路由**：判断这个 ticket 的档位（关键 / 复杂 / 常规 / 机械），再为它选本机和服务器各自的推荐 agent。拿不准就交给 `/route-agent`，不要凭感觉填
 5. **写文件**：feature ticket 写入 `.workflow/tickets/`，bug fix ticket 写入 `.workflow/bugs/tickets/`
 
 ## route 块
@@ -33,8 +33,8 @@ disable-model-invocation: true
 <!-- status: todo -->
 <!-- route:
  phase: execution
- local: claude-code-opus
- server: codex-high
+ local: claude-domestic
+ server: oh-my-pi-gpt
 -->
 <!-- released: <version> -->
 ```
@@ -50,7 +50,8 @@ disable-model-invocation: true
 - 两条独立写，互不参照。服务器选不出来时写 `manual`，不影响本机那条
 - 值必须是 `.workflow/agents.json` 里存在的 id，或 `manual`
 - 不写 `display_name`，不写机器名、IP、路径
-- 推荐不确定时先写 `manual`，再运行 `/route-agent` 补齐，不要凭感觉填一个
+- **关键和复杂档优先选 `strength: high` 的 agent。** 本侧没有 high 时选最强者，并在理由里注明降级，不要写 `manual` 把 ticket 挂起来
+- 拿不准时先写 `manual`，再运行 `/route-agent` 补齐
 - 写 `manual` 表示由当前会话或人工完成，不需要注册 agent
 
 ## ticket 模板
@@ -59,8 +60,8 @@ disable-model-invocation: true
 <!-- status: todo -->
 <!-- route:
  phase: execution
- local: claude-code-opus
- server: codex-high
+ local: claude-domestic
+ server: oh-my-pi-gpt
 -->
 <!-- released: <version> -->
 
@@ -85,9 +86,10 @@ disable-model-invocation: true
 
 ## 🧭 路由
 - Phase：`execution`
-- 本机：`claude-code-opus`
-- 服务器：`codex-high`
-- 理由：<tags 命中了什么，或为什么是 manual>
+- 档位：`常规`
+- 本机：`claude-domestic`
+- 服务器：`oh-my-pi-gpt`
+- 理由：<为什么它适合这件事，一句话>
 
 ## 🌿 工作树
 - 目录：`.worktrees/<ticket-id>/`
@@ -107,7 +109,7 @@ disable-model-invocation: true
 
 **`## 🧩 上下文`** 只写 agent 在现场拿不到的东西。技术方案在 spec 里已经论证过，这里给落点，不重新论证。
 
-**`## 🧭 路由`** 的理由只写一句。理由必须来自 agents.json 里真实的字段，不要编。
+**`## 🧭 路由`** 的理由只写一句，要说清「为什么它适合这件事」，不是数 tags。关键和复杂档要说明为什么这个 ticket 属于该档。
 
 ## 路径
 

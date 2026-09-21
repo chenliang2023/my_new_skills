@@ -35,6 +35,8 @@ description: 系统性调试。当遇到 bug、测试失败或意外行为时使
 
 修复必须走 bug fix ticket。ticket 的 route 块给出本机和服务器两条推荐 agent，按当前机器取一条；还没写时运行 `/route-agent`。
 
+疑难 bug 的根因定位属于关键档，优先给本侧 `strength: high` 的 agent。毛病看不出来往往就是因为它难，拿快模型硬试只会浪费时间；本侧没有 high 时用最强者顶上并注明降级。
+
 ## 禁止
 
 - 没有红测试就改代码
