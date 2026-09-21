@@ -1,11 +1,11 @@
 # Engineering Skills
 
-工程实践规范。model-invoked，agent 实现代码时自动遵守，不需要用户手动调用。
+工程实践规范。model-invoked，任何 runtime 中的 agent 或当前会话在实现、调试、验证和 review 时都应遵守。
 
 ## Skills
 
-- **[readable-docs](./readable-docs/SKILL.md)**：`.workflow/` 下所有文档的写法规范，以及写完后的对话回复格式。材料门槛、说话位置、段落切分、emoji 密度、Mermaid 图规范、查证过程与翻案腔的分界、补全时如何融入正文、交稿前自检、四块式回报。写 research、spec、ticket、报告时自动遵守。
-- **[tdd](./tdd/SKILL.md)**：测试驱动开发。红绿循环、好测试的标准、seam 选择、反模式。服务器端 agent 实现 ticket 时遵守。
-- **[diagnosing-bugs](./diagnosing-bugs/SKILL.md)**：系统性调试。先建紧凑反馈循环再修复，分阶段定位根因，最后写 regression 测试。
-- **[code-review](./code-review/SKILL.md)**：双轴代码复审（规范符合 + 工程标准）。本机拉取服务器结果后运行，作为交付前最终检查。
-- **[context-sync](./context-sync/SKILL.md)**：本机与服务器 CodeG 之间的上下文同步规范。通过 `.workflow/` 目录同步文档，通过 CodeG 的 Skill 管理同步 skills。
+- **[readable-docs](./readable-docs/SKILL.md)**：`.workflow/` 下所有文档的写法规范，以及写完后的对话回复格式。
+- **[tdd](./tdd/SKILL.md)**：测试驱动开发。红绿循环、测试 seam 和反模式。
+- **[diagnosing-bugs](./diagnosing-bugs/SKILL.md)**：系统性调试。先建立反馈循环，再定位、修复和写 post-mortem。
+- **[code-review](./code-review/SKILL.md)**：双轴代码复审，可在执行 runtime、review runtime 或交付前的任意目标上运行。
+- **[context-sync](./context-sync/SKILL.md)**：在多个 runtime 之间同步 `.workflow/` 文档和 skills。

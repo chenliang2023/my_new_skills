@@ -1,115 +1,67 @@
 ---
 name: context-sync
-description: 在本机与服务器 CodeG 之间同步上下文文档和 skills。确保两端读取同一套 spec、ticket、research 和术语表。
+description: 在多个 runtime 之间同步 .workflow 上下文和 skills，确保 spec、ticket、research、术语表和验证报告使用同一份内容。
 ---
 
 # Context Sync
 
-本机与服务器之间通过 git 仓库中的 `.workflow/` 目录同步上下文文档，通过 CodeG 的 Skill 管理同步 skills。
+`.workflow/` 是跨 runtime 的共享上下文载体。通过 git 同步文档，通过各 runtime 的 skill 安装机制同步 skills。不要把某一环境写成唯一生产者或消费者。
 
-## 同步的内容
+## 同步内容
 
-### 1. `.workflow/` 目录（通过 git）
+### `.workflow/` 目录
 
-```
+```text
 .workflow/
-  config.json          # 项目配置（两端共享）
-  tickets/             # ticket 文件（本机产出，服务器消费）
-  specs/               # spec 文件（本机产出，服务器消费）
-  research/            # 调研文档（本机产出，服务器消费）
-  handoffs/            # 交接文件（双向）
-    grill-summary-*.md
-    verify-report-*.md
-  CONTEXT.md           # 项目术语表（双向，持续更新）
-  ADR/                 # 架构决策记录（双向）
+  config.json          # 路径配置
+  agents.json          # Agent 注册表
+  runtimes.json        # Runtime、adapter、能力和默认路由
+  tickets/             # ticket
+  specs/               # spec
+  research/            # 调研文档
+  handoffs/            # runtime 间交接和 verify 报告
+  CONTEXT.md           # 术语表
+  ADR/                 # 架构决策记录
 ```
 
-### 2. Skills（通过 CodeG 的 Skill 管理）
+这些文件必须提交到 git。ticket、spec、research 和 handoff 不能依赖某个机器上的未提交状态。
 
-CodeG 有两种 skill 管理方式：
+### Skills
 
-**方式 A：共享存储（推荐）**
-- CodeG 的 Settings → Skill Packs → Custom 标签页
-- skill 存放在 `~/.codeg/skills`
-- 写一次，通过 skill-and-agent 矩阵启用到多个 agent
-- 对应本仓库的 `skills/` 目录：把本仓库的 skill 文件夹复制或 symlink 到 `~/.codeg/skills/`
+把本仓库的 `skills/` 安装到需要它们的 runtime adapter。安装位置由 adapter 决定：例如本地 skill 目录、CodeG 的共享 skill 存储，或其它任务系统的配置目录。
 
-**方式 B：直接写入 agent 目录**
-- CodeG 的 Settings → Skills 页面
-- 直接写入某个 agent 的 skills 目录（如某个 agent 的 `~/.codeg/skills/`，或本机 VS Code 的 `~/.claude/skills/`）
-- 适合 agent 专属 skill
+同步原则：
 
-**同步策略**：
-- 把本仓库 `skills/` 下的所有 skill 放入服务器的 `~/.codeg/skills/`
-- 在 CodeG 的 Skill Packs → Custom 矩阵中，把 planning 和 setup 类 skill 只启用给 `agents.json` 里 `manual_entry: true` 的那个 agent
-- engineering 类 skill 启用给 `agents.json` 里**所有** agent（agent 列表变化时本规则自动跟着变）
-- dispatch 类 skill 只启用给 manual_entry agent（由用户在服务器端手动调用）
+- planning、dispatch、engineering 和 setup skill 是否可用，由 runtime 的任务能力和用户需要决定
+- 不因为某个 agent 是“默认入口”就只给它安装 planning 或 dispatch
+- engineering skill 应在所有会实现、验证或 review 的 agent 上可用
+- agent 列表从 `.workflow/agents.json` 读取，adapter 可用性从 `.workflow/runtimes.json` 读取
 
-> agent 列从 `.workflow/agents.json` 渲染；agent 增删后这里**不需要手动改**，只在新加 agent 的 CodeG 安装与认证做一次。
+## 交接流程
 
-## 同步规则
+### Runtime A → Runtime B
 
-### 本机 → 服务器（规划结果交接）
+1. 确保 `.workflow/` 文档已保存
+2. 确认 ticket 的 route 字段是显式可达或 `auto`
+3. git add、commit、push
+4. Runtime B 拉取同一 commit
+5. Runtime B 运行 `/context-sync` 或至少检查 registry、spec、ticket 和 CONTEXT.md
+6. 按 `/dispatch`、`/verify` 或 `/code-review` 继续，不需要重新解释上下文
 
-当本机完成规划（grill / spec / tickets）后：
+### 执行结果 → Review runtime
 
-1. 确保 `.workflow/` 下所有文档已保存
-2. 如果项目有 `CONTEXT.md`，确认术语已更新
-3. git add + commit + push
-4. 在服务器 CodeG 中：
-   - git pull
-   - 在 To-dos 面板中根据 ticket 创建任务（运行 `/dispatch`）
+1. 代码和 `.workflow/handoffs/` 报告提交到 git
+2. 目标 review runtime 拉取同一 commit
+3. `/code-review` 读取 ticket、spec、verify report 和 diff
+4. review 结论写回 handoff 或 pull request
 
-### 服务器 → 本机（执行结果回报）
-
-当服务器端完成 ticket 执行后：
-
-1. CodeG Merge 后代码已在主分支
-2. `/verify` 产出验证报告到 `.workflow/handoffs/`
-3. git add + commit + push
-4. 本机 git pull 后运行 `/code-review`
-
-## CONTEXT.md：项目术语表
-
-`CONTEXT.md` 是项目共享术语表，两端共用。作用：
-- 让 agent 理解项目 jargon，减少 token 消耗
-- 让命名在多个 agent 之间一致
-- 让 spec 和 ticket 中的术语有明确定义
-
-格式：
-
-```markdown
-# Context
-
-## 术语表
-- **材料化（Materialization）**：给一节课在文件系统中分配位置，使其"真实"的过程
-- **课程段（Section）**：课程的章，一组课的容器
-
-## ADR 索引
-- [ADR-001](ADR/001-auth-strategy.md)：认证策略选择 JWT
-```
-
-## CodeG 的 Skill 格式
-
-CodeG 使用的 SKILL.md 格式与本仓库一致：
-
-```markdown
----
-name: skill-id
-description: 一句话描述
----
-
-正文：技能的步骤和规则。
-```
-
-CodeG 通过 `name` 字段作为 `/` 菜单中的标识，`description` 用于在菜单中显示。
+CodeG 的 Merge、worktree、To-dos 和 preflight 只有在 `codeg-todos` adapter 声明对应能力时才使用。本机或其它 adapter 可以提供等价能力，也可以明确不提供并按串行流程执行。
 
 ## 检查清单
 
-交接前确认：
 - [ ] `.workflow/` 已提交到 git
-- [ ] 本轮新增或改动的文档按 `/readable-docs` 自检过，机械检查命中项已清零
-- [ ] CONTEXT.md 如有变更已更新
-- [ ] push 成功
-- [ ] 服务器 git pull 成功
-- [ ] 服务器 CodeG 的 Skill 管理中 skill 已启用给对应 agent
+- [ ] `agents.json` 与 ticket 中的 agent ID 一致
+- [ ] `runtimes.json` 中引用的 adapter 和 agent 存在
+- [ ] route 所需能力由目标 adapter 声明
+- [ ] 本轮新增或改动的文档按 `/readable-docs` 自检
+- [ ] 目标 runtime 已拉取同一 commit

@@ -1,12 +1,12 @@
 # Dispatch Skills
 
-服务器端（CodeG）执行阶段使用的 skills。用户调用，驱动 `.workflow/agents.json` 里声明的 agent 并发执行 ticket。
+任务路由、分派、验证和集成阶段使用的 skills。它们可以在任何注册了相应能力的 runtime 中运行。
 
-这些 skill 配合 CodeG 的 To-dos 面板使用，不重复 CodeG 已有的任务管理、worktree 隔离、Review/Merge 流程。
+`.workflow/runtimes.json` 决定可用的 runtime 和 adapter，`.workflow/agents.json` 决定可用的 agent。CodeG 是一个可选 runtime，`codeg-todos` 只是它的一个 adapter；如果当前目标没有它，skill 按 adapter 能力使用本机会话、脚本任务队列或其它执行方式。
 
 ## Skills
 
-- **[dispatch](./dispatch/SKILL.md)**：读取 ticket，在 CodeG 的 To-dos 面板中创建任务，分派给对应 agent。支持两种模式：独立 To-do（适合互不依赖的 ticket）和 `@` 委托（适合主从型多 agent 协作）。
-- **[route-agent](./route-agent/SKILL.md)**：根据 ticket 内容自动判断应分派给哪个 agent（基于 `.workflow/agents.json` 的 tags + cost_tier 路由，不硬编码 agent 名）。供 `/dispatch` 调用，也可独立运行做路由预检。
-- **[integrate](./integrate/SKILL.md)**：跨 ticket 协调（补充用）。CodeG 的 Merge 流程已处理单任务级别的冲突解决和 git 验证，本 skill 只在跨 ticket 问题时使用。
-- **[verify](./verify/SKILL.md)**：全量验证（类型检查、lint、测试、构建），可利用 CodeG 的 preflight command 或手动执行。产出验证报告供本机复审。
+- **[dispatch](./dispatch/SKILL.md)**：读取 ticket，检查阻塞边，根据 canonical route 和目标 adapter 的能力创建任务并分派给 agent。
+- **[route-agent](./route-agent/SKILL.md)**：根据 ticket 的 phase、能力、标签、runtime 和 adapter 约束，输出完整路由，不硬编码 agent 名称或环境。
+- **[integrate](./integrate/SKILL.md)**：在 adapter 没有足够的 merge 能力，或需要跨 ticket 协调时使用。
+- **[verify](./verify/SKILL.md)**：在独立的 `verification` phase 做全量验证并产出 `.workflow/handoffs/verify-report-<date>.md`，可利用 adapter 提供的 preflight。

@@ -1,31 +1,25 @@
 ---
 name: to-spec
-description: 将当前对话或 grill 摘要综合成一份正式 spec 文件，存入 .workflow/specs/。不重新 interview，只做综合。
+description: 将当前对话或 grill 摘要综合成一份正式 spec，存入 .workflow/specs/。不重新 interview，只做综合。
 disable-model-invocation: true
 ---
 
 # To Spec
 
-把 grill-me 产出的摘要（或当前对话中已经讨论清楚的内容）综合成一份正式 spec。**不要重新 interview**，只做综合。
+把 grill-me 产出的摘要或当前对话中已经讨论清楚的内容综合成一份正式 spec。不要重新 interview，只做综合。
 
 ## 前提
 
-- `.workflow/config.json` 应已存在。如果没有，告知用户先运行 `/setup-workflow`。
-- 已有 grill 摘要或足够的对话上下文。
+- `.workflow/config.json` 已存在
+- 已有 grill 摘要或足够的对话上下文
+- 如果引用调研，调研文档已在 `.workflow/research/`
 
 ## 流程
 
-1. **读取上下文**：读取当前对话历史、grill 摘要文件（如有）、`.workflow/research/` 下的调研文档（如相关）。使用项目已有的术语，尊重相关 ADR。
-
-2. **确定测试 seam**：梳理出实现这个功能要测试的边界（seam）。优先复用已有 seam，其次在最合理的高度新建。seam 越少越好，理想数量是 1。
-
-   向用户确认这些 seam 是否符合预期。
-
-3. **写 spec**：用下面的模板写，然后存入 `.workflow/specs/<feature-name>.md`。
-
-   spec 文件是**当前批次**的：发版时（`/version` 触发归档）会与对应版本的 feature ticket 一起搬到 `.workflow/version/archive/v<version>/specs/`。所以写 spec 时**不**追求历史完整、只覆盖本次要做的；历史由归档路径串联。
-
-   spec 的两个读者都要照顾到，按 `/readable-docs` 执行。人读它是为了确认「这就是我要的东西」，agent 读它是为了知道边界在哪。前者做不到，spec 再精确也没用。
+1. 读取当前上下文、grill 摘要、调研文档、CONTEXT.md 和相关 ADR。
+2. 确定实现行为和测试 seam，必要时向用户确认 seam。
+3. 写 spec 到 `.workflow/specs/<feature-name>.md`。
+4. 不在 spec 中把 runtime、adapter 或 agent 写成固定前提。只有当行为确实依赖某个能力时，描述能力或约束。
 
 ## spec 模板
 
@@ -33,88 +27,42 @@ disable-model-invocation: true
 # <功能名> Spec
 
 ## 🎯 问题陈述
-<用户面临的问题，从用户视角表述。写清现在会发生什么、为什么不能接受。
- 不要写「用户体验不佳」这类话，写具体的场景。>
+<用户视角的问题和当前不可接受的行为>
 
 ## 💡 解决方案
-<解决方案方向，从用户视角表述。写清做完之后用户的处境有什么不同。>
+<做完之后用户的处境有什么不同>
 
 ## 👤 用户故事
 1. 作为 <角色>，我希望 <功能>，以便 <收益>
-2. ...
 
 ## 🏗️ 实现决策
-<每条决策写成一句能被反驳的陈述，加上为什么这么定、什么情况下要重新讨论。
- 不要写关键词，写判断。>
-
-<决策涉及三四个以上模块、或者有状态迁移和失败路径的，在这里放一张 Mermaid 图。
- 图要回答一个具体问题，节点用代码里的真实名字，标出边界和失败路径。
- 画法见 /readable-docs 的「Mermaid 图」。>
+<每条决策说清选了什么、为什么、什么情况下重新讨论>
 
 ## 🧪 测试决策
-- 什么是好的测试（只测外部行为，不测实现细节）
-- 哪些模块会被测试
-- 测试的先例（codebase 中类似的测试）
+- 测试外部行为，不测试实现细节
+- 复用的测试 seam 和相关先例
 
 ## 🚫 范围外
-- 明确列出不做的事情，以及为什么不做
+- <明确不做的事情>
 
 ## 📎 附注
 <其它需要记录的信息>
 ```
 
-标题上的 emoji 是示意，你按这份 spec 的内容自己选一套，全篇保持一致。
+涉及多模块、状态迁移或失败路径时画 Mermaid 图。节点使用真实模块名，图不超过九个节点。
 
-`/readable-docs` 有完整规则。有两条执行时最容易打折扣，这里点出来：
+## 实现决策规则
 
-- ✂️ **段落要短。** 一段一个意思，讲完就空行换段，三五行为宜。spec 里的决策、依据、例外各占一段，不要糊成一坨
-- 🎨 **emoji 不要省。** 每个段落开头、每个列表项都配一个做锚点
-
-## 实现决策怎么写
-
-这一节是 spec 里最容易写成废纸的地方。不合格的写法：
-
-> ## 实现决策
-> - 涉及的模块：auth service
-> - 模块接口：login
-
-读者看完不知道选了什么、为什么这么选、以后什么情况要改。合格的写法：
-
-> ## 🏗️ 实现决策
-> - access token 用 HS256 自签，不做 introspection。验签的只有我们自己的网关，introspection 会多一次网络往返，而现在每个请求已经在打 DB 了，不想再加一跳。以后出现第二个要验签的服务时，这条要重新讨论。
-> - refresh token 存 Redis 的 `refresh:<jti>`，TTL 30 天。依据见 `.workflow/research/oauth-token-refresh.md` 的结论部分。
-> - 不做「记住我」。理由是它会引入第二个 token 生命周期，而当前没有用户提出过这个需求。
-
-写法规则：
-
-- 每条决策说清选了什么、为什么、什么情况下要重新讨论
-- 决策要能被反驳。写不出反驳条件的，通常是没想清楚或者没得选，两种都值得写出来
-- 不要为了覆盖「涉及的模块 / 接口 / 架构 / schema / API 契约」这些标签而写空条目。没有决策的标签直接删掉
-- 不用名词化，不用「核心是」这类抬价腔。见 `/readable-docs`
-
-不要包含具体文件路径或代码片段，它们会很快过时。
-
-例外：如果 prototype 产出了能精确编码某个决策的片段（状态机、reducer、schema、type shape），内联到相关决策中并注明来自 prototype。
-
-## 路径
-
-spec 文件存入 `.workflow/specs/<feature-name>.md`，feature-name 用 kebab-case。
+- 每条决策说清选择、理由和重新讨论条件
+- 不用“涉及模块”“接口列表”填空
+- 不要包含容易过时的具体文件路径和代码片段
+- 如果 prototype 产出精确 schema、状态机或 reducer，可以内联并标注来源
 
 ## 交稿前
 
-按 `/readable-docs` 的自检清单过一遍，再跑一次机械检查的 grep。spec 是你自己要反复读的文档，这里省下的时间会在后面还回去。
-
-**spec 返工时同样不留痕。** 讨论过程中推翻过某个决策，就改掉那一条，不要写成「原先打算 X，后来改为 Y」。服务器上的 agent 读到两个版本会不知道该实现哪个。需要保留演进过程的话写进 ADR 或 commit message。
-
-## 回报给用户
-
-按 `/readable-docs` 的「写完之后的回复」发一条四块回复。
-
-spec 类的第二块给**方案方向和关键决策**，第三块给需要用户确认的范围内取舍和测试 seam。不要复述 spec 的章节内容。
+按 `/readable-docs` 自检。返工时直接改正文，不保留旧版本和“补充说明”痕迹。
 
 ## 下一步
 
-spec 写完后，告知用户：
-
-- ▶️ 运行 `/to-tickets` 将 spec 拆成可并发的 ticket
-- 📦 或如果 spec 足够小，可直接在服务器端运行 `/dispatch`
+- 运行 `/to-tickets` 拆 ticket，并为每个 ticket 写 route 和所需能力
+- spec 足够小时，也可以直接在具备 `dispatch` 的 runtime 上运行 `/dispatch`

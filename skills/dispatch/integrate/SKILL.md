@@ -1,64 +1,88 @@
 ---
 name: integrate
-description: CodeG 的 Merge 流程已经处理了单任务级别的冲突解决和 git 验证。本 skill 只在需要跨多个 ticket 协调时补充使用，或在 CodeG Merge 失败后手动介入。
+description: 在 adapter 没有足够的 merge 能力，或多个 ticket 之间需要跨模块协调时使用。CodeG Merge 只是可选 adapter 能力。
 disable-model-invocation: true
 ---
 
 # Integrate
 
-重要：CodeG 的 To-dos Merge 流程已经内置了：
-- agent 在自己的 session 中执行合并
-- 自动解决冲突
-- CodeG 用 git 验证合并是否真的成功
-- 失败会退回 review
+集成阶段负责把多个 ticket 的结果放到一个一致的工作树中，并处理跨 ticket 冲突。它不假设所有 adapter 都有同一种 Merge UI。
 
-所以大多数情况下你不需要手动 integrate。本 skill 只在以下场景补充使用。
+## Canonical route
 
-## 何时使用本 skill
+集成使用独立的 phase：
 
-- 多个 ticket 合并后出现跨模块冲突（CodeG 逐个 Merge 时没发现，但组合起来有问题）
-- CodeG Merge 失败后需要手动介入
-- 你想在一次 review 中看所有变更的整体 diff，而不是逐个
+```yaml
+phase: integration
+runtime_id: auto
+adapter_id: auto
+agent_id: auto
+capabilities_all: []
+capabilities_any: [integrate, merge]
+```
 
-## 正常流程（首选）
+如果目标 adapter 只能提供 `merge`，就使用其内置合并能力。如果需要手动跨模块协调，目标必须提供 `integrate` 或 `execute`，并在调用中明确这一点。
 
-正常情况下，让 CodeG 自己处理：
-1. 每个 ticket 在 To-dos 面板完成后进入 Review 列
-2. 逐个点 Merge，CodeG 的 agent 会解决冲突
-3. CodeG 验证 git 确实合并了
-4. 所有 ticket 合并后运行 `/verify`
+## 何时使用
 
-## 补充流程：跨 ticket 协调
+- 多个 ticket 组合后出现跨模块冲突
+- 目标 adapter 没有 `merge` 能力
+- adapter 的内置 Merge 失败，需要人工介入
+- 需要整体 diff review，而不是逐个 ticket review
 
-如果需要手动跨 ticket 协调：
+如果目标 adapter 声明了 `merge`，先使用它的内置流程。CodeG 的 To-dos Merge、冲突处理和 git 验证属于 `codeg-todos` 的能力，不要在外层重复实现。
 
-1. **扫描完成状态**：读取 `.workflow/tickets/` 下所有 ticket，找出 CodeG 已标记为 review 但你想批量处理的
+## 通用流程
 
-2. **整体 diff review**：在 CodeG 中打开项目文件夹，用 Git 面板查看所有已合并 ticket 的累计 diff
-
-3. **解决跨 ticket 冲突**：如果发现跨模块问题，在 CodeG 中开一个新会话，agent 选 `agents.json` 里 `manual_entry: true` 的那个（如涉及架构决策再切到昂贵档 agent）整体修复：
-   ```
-   以下 ticket 已合并但存在跨模块冲突：
-   - [002] user-model
-   - [004] user-api
-   冲突：User 接口在 [002] 加了 email，在 [004] 加了 phoneNumber，但 AuthService 期望的字段不匹配
-   请修复让它们一致
-   ```
-
-4. **标记为 done**：在 ticket 文件中把状态改为 `done`，附上 CodeG 的 merge commit hash
+1. 扫描 ticket 状态和各自的 route，确认哪些结果已完成
+2. 在一个具备 `integrate`、`merge` 或 `execute` 能力的 runtime 中建立集成工作区
+3. 读取 spec、ticket、ADR 和相关 verify report，理解每一边的 intent
+4. 查看累计 diff，定位跨模块冲突
+5. 只做合并、冲突解决和必要的回归验证，不在集成阶段扩展新功能
+6. 更新 ticket 状态和 handoff，记录 commit、route 和剩余风险
+7. 运行 `/verify`
 
 ## 冲突解决原则
 
-如果需要手动解决冲突：
+- 找到双方的 primary source：ticket 任务、spec 决策和 ADR
+- 选择能同时满足 intent 的结果
+- 如果两个 intent 互相矛盾，标记 `blocked`，退回用户决策
+- 不自动选择“ours”或“theirs”
+- 不在没有测试或验证的情况下声称冲突已经解决
 
-- 找到冲突两边的 primary source（ticket 的 `## 任务` 描述、相关 ADR、spec 决策）
-- 理解两边各自想实现什么意图
-- 选择能同时满足两个意图的合并结果
-- 如果两个 intent 互相矛盾，标记为 `blocked`，退回给用户决策，不要擅自选边
+## 结果记录
 
-## 不要做的事
+```markdown
+## 🔀 集成报告
 
-- 不要重复 CodeG 已经做的事（Merge、冲突解决、git 验证）
-- 不要 `git merge --abort`：CodeG 没有给你这个选项，也不需要
-- 不要自动选 "ours" 或 "theirs"：那会丢失一边的 intent
-- 不要在集成阶段写新功能：只做合并和冲突解决
+### 🧭 目标
+- Phase：`integration`
+- Runtime：<runtime-id>
+- Adapter：<adapter-id>
+- Agent：<agent-id 或 null>
+
+### ✅ 已集成
+- [002] <ticket>：<commit>
+- [004] <ticket>：<commit>
+
+### ⚠️ 冲突与决定
+- <冲突>：<依据和决定>
+
+### 🧪 验证
+- <命令和结果>
+
+### 🏁 状态
+- [ ] 可继续 `/verify`
+- [ ] blocked，等待用户决定
+```
+
+## CodeG 特殊说明
+
+当且仅当目标是 `codeg-todos` 且它声明 `merge` 时：
+
+- 逐个查看 Review 列
+- 使用 adapter 的 Merge、Follow up、Complete 或 Abandon
+- 让 CodeG agent 处理它自己的 worktree 合并
+- 依赖 CodeG 的 git 验证结果
+
+不要把这些 UI 名称写成其它 adapter 的要求。

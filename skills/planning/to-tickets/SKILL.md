@@ -1,41 +1,69 @@
 ---
 name: to-tickets
-description: 将 spec 拆成一组 tracer-bullet ticket，每个 ticket 声明自己的阻塞边，写入 .workflow/tickets/。供服务器端 CodeG 并发分派。
+description: 将 spec 拆成自包含的 tracer-bullet ticket，声明阻塞边和可选 runtime、adapter、agent 路由，写入 .workflow/tickets/。
 disable-model-invocation: true
 ---
 
 # To Tickets
 
-把 spec 拆成一组可以在 CodeG 上并发执行的 ticket。每个 ticket 是自包含的：服务器端 agent 拿到单个 ticket 就能干活，不需要读取整个 spec。
+把 spec 拆成可以在任意合适 runtime 中执行的 ticket。每个 ticket 是自包含的：拿到单个 ticket 的 agent 或当前会话能直接开始工作，不需要猜测执行环境或重新阅读整份 spec。
 
 ## 前提
 
-- 已有一份 spec 在 `.workflow/specs/` 下。
-- `.workflow/config.json` 存在（读取分支模板等配置）。
+- 已有一份 spec 在 `.workflow/specs/` 下
+- `.workflow/config.json` 存在
+- 如果要写显式 agent 或 runtime，`.workflow/agents.json` 和 `.workflow/runtimes.json` 已存在
 
 ## 流程
 
-1. **读 spec**：通读 spec，识别出实现这个功能需要的工作单元。
+1. **读 spec**：识别实现功能需要的工作单元和外部行为。
+2. **拆分**：每个 ticket 是一个 tracer bullet，端到端贯穿一个行为，不做横向切片。
+3. **声明阻塞边**：列出必须先完成的 ticket；无依赖就写“无”。
+4. **声明能力**：写清任务需要 `execute`、`verify`、`isolated-worktree`、`parallel` 或其它能力。多个必需能力放 `capabilities_all`，二选一放 `capabilities_any`。
+5. **路由提示**：根据已知约束填写 runtime、adapter、agent。无法确定时写 `auto`，不要猜一个固定环境或 agent。
+6. **写文件**：feature ticket 写入 `.workflow/tickets/`；bug fix ticket 写入 `.workflow/bugs/tickets/`。
 
-2. **拆分原则**：
-   - 每个 ticket 是一个 **tracer bullet**：端到端贯穿一个行为，不是横向切片（不是"先写所有 model，再写所有 controller"）。
-   - 每个 ticket 自包含：包含足够上下文让一个新 agent session 能直接干活。
-   - 每个 ticket 声明 **阻塞边**：它依赖哪些其它 ticket 先完成。
-   - 互不依赖的 ticket 可以并发分派给不同 agent。
+## Canonical route block
 
-3. **agent 分派建议**：为每个 ticket 标注建议的 agent（agent 列表从 `.workflow/agents.json` 查）。`## 建议 Agent` 字段写 agent `id`（kebab-case），不要写 `display_name`。不确定时调 `/route-agent` 自动判；`/route-agent` 基于 `agents.json` 的 tags + cost_tier 路由。
+所有新 ticket 在状态行后使用统一机器格式：
 
-4. **写 ticket 文件**：每个 ticket 一个文件，写入 `.workflow/tickets/`。注意：
+```markdown
+<!-- status: todo -->
+<!-- route:
+ phase: execution
+ runtime_id: auto
+ adapter_id: auto
+ agent_id: auto
+ capabilities_all: [execute]
+ capabilities_any: []
+-->
+<!-- released: <version> -->
+```
 
-  - feature ticket → `.workflow/tickets/<id>-<slug>.md`（本 skill 主战场）
-  - release ticket → `.workflow/version/tickets/v<version>.md`（由 `/version` 创建，不走本 skill）
-  - bug fix ticket → `.workflow/bugs/tickets/<id>-fix-<slug>.md`（bug 修复工作流的产物，路径与 feature ticket 隔离，避免污染 `/dispatch` 默认扫描范围）
+字段含义：
+
+- `phase`：通常是 `execution`；验证、review 和 integration 使用各自阶段
+- `runtime_id`：在哪里运行，写稳定 ID、`auto` 或 `null`
+- `adapter_id`：通过什么机制运行，写稳定 ID、`auto` 或 `null`
+- `agent_id`：谁执行，写稳定 ID、`auto` 或 `null`。`null` 表示当前用户会话、脚本或人工执行
+- `capabilities_all`：必须全部具备
+- `capabilities_any`：非空时至少具备一个
+
+人读的 `## 🧭 路由` 只是这段 route 的说明，不是第二套机器格式。不要再生成只有 `## 🤖 建议 Agent` 的新 ticket。旧 ticket 可以由 `/route-agent` 兼容读取。
 
 ## ticket 模板
 
 ```markdown
-<!-- status: todo | dispatched | done | blocked -->
-<!-- released: <version>  （feature ticket 在 /version 发版时由 agent 自动填；bug fix ticket 同样机制） -->
+<!-- status: todo -->
+<!-- route:
+ phase: execution
+ runtime_id: auto
+ adapter_id: auto
+ agent_id: auto
+ capabilities_all: [execute, verify]
+ capabilities_any: []
+-->
+<!-- released: <version> -->
 
 # [<ticket-id>] <标题>
 
@@ -43,130 +71,107 @@ disable-model-invocation: true
 来源：`.workflow/specs/<spec-name>.md` 的 <相关章节>
 
 ## 🎯 任务
-<一句话说清做完之后的行为有什么不同，再补上现在是什么样。
- agent 视角描述，自包含，不需要读 spec。>
+<一句话说清完成后的可观察行为，再补上现在的行为。agent 不需要读取 spec 才能理解目标。>
 
 ## ✅ 验收标准
-1. <可观察的条件，能写出验证它的命令或操作>
+1. <可观察条件，能对应一个命令、请求或操作>
 2. ...
 
 ## 🧪 测试 seam
-<在这个 seam 上测试，只测外部行为>
+<只写外部行为的测试边界>
 
 ## 🚧 阻塞
 - 依赖：[<其它 ticket-id>] <标题>（必须先完成）
 - 或：无（可立即开始）
 
-## 🤖 建议 Agent
-<agent-id（从 .workflow/agents.json 查，不要写 display_name）>
-理由：<一句话>
+## 🧭 路由
+- Phase：`execution`
+- Runtime：`auto`
+- Adapter：`auto`
+- Agent：`auto`
+- 必需能力：`execute`、`verify`
+- 可选能力：无
+- 选择理由：<只有存在真实约束时才写，例如必须使用隔离 worktree>
 
 ## 🌿 分支
 <按 config 的 branch_template，如 ticket/001-user-auth>
 
-## 🧭 上下文
-<agent 需要知道的代码结构和术语。写清相关代码现在在哪、长什么样、为什么是这样，
- 不要只写文件名列表，也不要贴一段 spec 原文。ADR 引用写编号和结论。>
+## 🧩 上下文
+<agent 需要知道的代码结构、术语和约束。能从代码里读出来的不要抄。>
 
-<涉及跨模块调用、状态迁移或数据流的，在这里放一张小的 Mermaid 图。
- 节点用真实模块名和端点，边上写清流过去的是什么。不要画超过九个节点。>
+<跨模块调用、状态迁移或数据流可放一张不超过九个节点的 Mermaid 图。>
 ```
 
-标题上的 emoji 是示意，你按这批 ticket 的内容自己选一套，同一批里保持一致。
+`runtime`、`adapter` 和 `agent` 是三个独立字段：
 
-`/readable-docs` 有完整规则。有两条执行时最容易打折扣，这里点出来：
+- `runtime`：在哪里运行
+- `adapter`：通过什么任务机制运行
+- `agent`：谁执行
 
-- ✂️ **段落要短。** 一段一个意思，讲完就空行换段，三五行为宜。任务描述和上下文都按这个标准拆
-- 🎨 **emoji 不要省。** 每个段落开头、每条验收标准前面都配一个做锚点
+至少写出 `capabilities_all` 和 `capabilities_any`。如果没有环境或 agent 约束，写 `auto`，让 `/route-agent` 按注册表动态匹配。
 
 ## 三个字段的写法
 
-**`## 🎯 任务`** 是 ticket 里唯一必须被读懂的地方。不合格：
+**`## 🎯 任务`** 必须描述起点和终点。不要只写“实现用户认证模块”，要写清输入、输出、错误和当前 stub。
 
-> 实现用户认证模块。
-> 涉及文件：src/auth/*
+**`## ✅ 验收标准`** 写成可观察行为，不写“功能正常”或“代码质量良好”。每条标准都要能对应命令、请求或点击。
 
-合格的：
+**`## 🧭 路由`** 只记录真实约束。想表达“可在任意环境运行”时写 `auto`，不要为了看起来具体而写一个当前机器名称。
 
-> 让 `POST /api/login` 在凭证正确时返回一个 30 分钟有效的 access token，凭证错误时返回 401 和错误码 `INVALID_CREDENTIALS`。
->
-> 现在这个 handler 是个 stub，无论输入都返回 200 和空 body。`src/auth/login.test.ts` 里已经有三条失败用例描述了期望行为，先让它们变绿。
+**`## 🧩 上下文`** 只写 agent 在现场拿不到的东西。技术方案在 spec 里已经论证过，这里给落点，不重新论证。
 
-差在哪：不合格那段给了范围和名词，agent 得自己猜行为；合格那段给了起点和终点，agent 直接知道什么算做完。
+## 路由提示规则
 
-**`## ✅ 验收标准`** 写成可观察的行为，不要写成「功能正常」「代码质量良好」。每条标准要能对应一个命令、一次请求或一次点击。
-
-**`## 🧭 上下文`** 只写 agent 在现场拿不到的东西。能从代码里读出来的不要抄，抄了反而会过期。技术方案在 spec 里已经论证过，这里不重新论证，只给落点。涉及跨模块调用、状态迁移、数据流的时候，一张小图比三段话有用。
-
-ticket 也是人读的文档。review diff 时你会靠它判断 agent 做的是不是这件事，所以任务描述要能让你在三十秒内回忆起原本要什么。
+- 需要隔离 worktree 时：`capabilities_all` 加 `isolated-worktree`
+- 需要同时推进多个 ticket 时：加 `parallel`，并确认目标 adapter 声明该能力
+- 需要 CodeG To-dos 的特定功能时：写 `adapter_id: codeg-todos`，同时说明为什么没有其它 adapter 可以替代
+- 只需要某类 agent 时：写稳定的 `agent_id`，不写 display name
+- 允许当前会话直接完成时：写 `agent_id: null`，并确认 adapter 的 `agent_ids` 是空数组
+- 不确定时：调用 `/route-agent` 预检，让它输出 runtime、adapter、agent 三个维度
 
 ## 路径
 
-ticket 文件存入 `.workflow/tickets/<id>-<slug>.md`，id 用三位数字序号，slug 用 kebab-case。
+- feature ticket：`.workflow/tickets/<id>-<slug>.md`
+- release ticket：`.workflow/version/tickets/v<version>.md`，由 `/version` 创建
+- bug fix ticket：`.workflow/bugs/tickets/<id>-fix-<slug>.md`
 
 ## 拓扑排序输出
 
-拆完后，输出一个执行顺序图，让用户看到哪些 ticket 可以并发、哪些有依赖。
-
-用 Mermaid 画依赖关系，按批次分组。节点上带 ticket id 和建议 agent，边上可以标注共享的文件或接口，那种地方是冲突高发区。画法见 `/readable-docs` 的「Mermaid 图」。
+拆完后输出依赖关系和每个 ticket 的 route 意图。Mermaid 节点可以写 `[ticket-id]`，不要把示例 agent 名当成默认值：
 
 ````markdown
 ```mermaid
 flowchart LR
   subgraph W1["第 1 批 · 可立即开始"]
-    T001["[001] init-db-schema<br/>pi"]
-    T003["[003] research-auth-lib<br/>pi"]
-    T006["[006] design-auth-interface<br/>harness"]
+    T001["[001] init-db-schema<br/>route: auto"]
+    T003["[003] research-auth-lib<br/>phase: research"]
   end
   subgraph W2["第 2 批"]
-    T002["[002] user-model<br/>pi"]
-    T004["[004] user-api<br/>pi"]
-  end
-  subgraph W3["第 3 批"]
-    T005["[005] login-ui<br/>antigravity"]
+    T002["[002] user-model<br/>route: auto"]
   end
   T001 --> T002
-  T001 --> T004
-  T006 -->|"接口契约"| T002
-  T006 -->|"接口契约"| T004
-  T002 -->|"共享 UserDTO"| T005
-  T004 --> T005
+  T003 --> T002
 ```
 ````
 
-> 节点上的 agent 名字是当前 `.workflow/agents.json` 里的一个**示例**；不同项目该图不一样。
+图里如果展示具体 runtime、adapter 或 agent，必须说明它们来自当前注册表，不是仓库默认。
 
-如果拆分结果很小，两三个 ticket，图可以省掉，直接用文字说清谁先谁后。
-
-同时给一份可复制的分派清单，让用户能直接照着在 CodeG 里建任务：
+同时给出可复制的分派清单：
 
 ```markdown
 🟢 可立即开始
-- [001] init-db-schema → pi
-- [003] research-auth-lib → pi
-- [006] design-auth-interface → harness（架构决策，刀刃用）
+- [001] init-db-schema → runtime: auto / adapter: auto / agent: auto
 
-🟡 等待 [001] [006]
-- [002] user-model → pi
-- [004] user-api → pi
-
-🔴 等待 [002] [004]
-- [005] login-ui → antigravity
+🟡 等待 [001]
+- [002] user-model → runtime: auto / adapter: auto / agent: auto
 ```
-
-> 上面这些 id 是示例；真正写 ticket 时按当前 `agents.json` 的 `id` 字段填。
 
 ## 回报给用户
 
-按 `/readable-docs` 的「写完之后的回复」发一条四块回复。
-
-ticket 类的第二块给**拆出几个、谁阻塞谁、怎么并发**，第三块给分派建议要不要调。上面的拓扑图和分派清单已经展示过了，回复里不要再重复一遍，指路就行。
+按 `/readable-docs` 回复：给出拆出几个、谁阻塞谁、哪些 route 是显式约束、哪些会动态匹配。不要复述整批 ticket。
 
 ## 下一步
 
-拆分完成后，按 `/readable-docs` 的清单过一遍 ticket。这一批文件在服务器上不会再有人替你重写，任务描述写得含糊，agent 就会自己编一个理解。
-
-然后告知用户：
-
-- 📤 将 `.workflow/` 目录提交到 git 并推送到服务器仓库
-- 🚀 在服务器 CodeG 上运行 `/dispatch` 开始并发执行
+- 📤 提交 `.workflow/` 到 git
+- 🧭 如果 route 有疑问，运行 `/route-agent` 预检
+- 🚀 在具备 `dispatch` 或 `execute` 能力的目标 runtime 上运行 `/dispatch`

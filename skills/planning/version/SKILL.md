@@ -1,12 +1,12 @@
 ---
 name: version
-description: 管理项目的版本号、CHANGELOG、release 流程。决定何时 bump major/minor/patch、如何生成 changelog、如何打 git tag。本机手动调用，跑在 /verify 之后、/code-review 之前或之后。
+description: 管理项目的版本号、CHANGELOG、release 流程。决定何时 bump major/minor/patch、如何生成 changelog、如何打 git tag。可在 /verify 之后、/code-review 之前或之后的任意合适 runtime 手动调用。
 disable-model-invocation: true
 ---
 
 # Version
 
-把多 agent 并发开发的产出归一到版本管理上：每次 release 都有明确的版本号、自洽的 CHANGELOG、可回溯的 git tag。**前提是项目已经经过 `/verify` 全量验证**。
+把多个 runtime、adapter 和 agent 产生的变更归一到版本管理上：每次 release 都有明确的版本号、自洽的 CHANGELOG、可回溯的 git tag。**前提是项目已经经过 `/verify` 全量验证**。
 
 ## 何时调用
 
@@ -15,7 +15,7 @@ disable-model-invocation: true
 - 项目首次发版（0.1.0）
 - 想看一下当前版本距离上次 release 累积了多少 breaking changes
 
-不在主流程上每次跑——只在 release 节点跑。CI/CD pipeline 里通常也会自动跑，本 skill 是手动跑的口子。
+不在主流程上每次跑，只在 release 节点跑。CI/CD pipeline 里通常也会自动跑，本 skill 是手动调用的口子。运行目标由当前 route 和 adapter 能力决定，不固定某个环境。
 
 ## 产物落点
 
@@ -201,7 +201,7 @@ done
 
 - spec：当前批次在 `.workflow/specs/` 下的全部文件都搬（spec 是一次性的，发布完就过时）
 - feature ticket：只搬 `status: done` 的，未 done 的（如被 block、还在 dispatch 中）**不搬**，留到下个版本
-- bug fix ticket：**索引式归档，不实体搬迁**——见 7.4
+- bug fix ticket：**索引式归档，不实体搬迁**，，见 7.4
 
 #### 7.2 找出本 release 涉及的 bug fix ticket
 
@@ -317,9 +317,9 @@ postmortem 是 bug 修复的根因分析，是追溯事故最有价值的资产�
 
 ## 索引
 
-- [bug-tickets](./bug-tickets.md) — bug fix ticket 清单
-- [bug-repros](./bug-repros.md) — 复现命令清单
-- [bug-postmortems](./bug-postmortems.md) — postmortem 清单
+- [bug-tickets](./bug-tickets.md) ， bug fix ticket 清单
+- [bug-repros](./bug-repros.md) ， 复现命令清单
+- [bug-postmortems](./bug-postmortems.md) ， postmortem 清单
 
 ## git tag
 
@@ -336,7 +336,7 @@ postmortem 是 bug 修复的根因分析，是追溯事故最有价值的资产�
 在 `.workflow/version/history.md` **末尾**追加一段（**不覆盖既有内容**）：
 
 ```markdown
-## v2.1.0 — 2026-09-18
+## v2.1.0 ， 2026-09-18
 
 - **类型**：minor
 - **变更**：feat 3 / fix 7 / chore 12 / BREAKING 0
@@ -345,7 +345,7 @@ postmortem 是 bug 修复的根因分析，是追溯事故最有价值的资产�
 - **CHANGELOG**：见 ./CHANGELOG.md
 ```
 
-每次发版都追加一段，不删不改历史。`history.md` 是 release 历史的唯一真相源——倒着追加，避免并发发版时的行号竞态。
+每次发版都追加一段，不删不改历史。`history.md` 是 release 历史的唯一真相源，，倒着追加，避免并发发版时的行号竞态。
 
 ### 9. 通知
 

@@ -1,74 +1,43 @@
 ---
 name: diagnosing-bugs
-description: 系统性调试。当遇到 bug、测试失败或意外行为时使用，在提出修复前先建立紧凑反馈循环。服务器端 agent 遵守。
+description: 系统性调试。当遇到 bug、测试失败或意外行为时使用，在提出修复前先建立紧凑反馈循环。任何 runtime 中的 agent 都应遵守。
 ---
 
 # Diagnosing Bugs
 
-遇到难搞的 bug：第一眼看不出来的、间歇性 flake、两个已知良好状态之间潜入的 regression。本 skill 把调试纪律封装成分阶段循环。
+遇到难搞的 bug：第一眼看不出来、间歇性 flake，或两个已知良好状态之间潜入的 regression。本 skill 把调试纪律封装成分阶段循环。
 
 ## 产物落点
 
-跑完本 skill 的五个阶段，文件落在这些位置：
-
-```
+```text
 .workflow/bugs/
-├── repros/<date>-<slug>.md            # 阶段 1 产出：复现命令
-├── postmortems/<date>-<slug>.md       # 阶段 5 产出：根因 + 防同类再次发生
-└── tickets/<id>-fix-<slug>.md         # 修复 ticket（由 /to-tickets 在阶段 4 产出）
+├── repros/<date>-<slug>.md
+├── postmortems/<date>-<slug>.md
+└── tickets/<id>-fix-<slug>.md
 ```
 
-bug fix ticket **实体不归档，按时间永久留存**——`.workflow/bugs/tickets/` 是 bug ticket 的全量索引，不能搬走。但 `/version` 在 release 节点会：
-
-1. 按 commit 范围挑出"该 release 涉及到的 bug fix ticket"
-2. 给每条 ticket 顶部加 `<!-- released: v<version> -->` 标签
-3. 在 `archive/v<version>/bug-tickets.md` 写一份索引（指针清单，指向 `.workflow/bugs/tickets/` 原文件）
-
-这样"按 release 查修了哪些 bug"和"按时间查所有 bug ticket"两条检索路径都能用。
+这些文件通过 git 在 runtime 之间共享，不要求修复一定发生在某个环境。
 
 ## 核心原则：先有反馈循环再修复
 
-**不要在建立紧凑反馈循环之前提出修复方案。**
-
-紧凑反馈循环 = 一个命令，现在就能在这个 bug 上失败（红）。如果你没有一个命令现在就能失败，你不能开始修复，因为你无法验证修复是否有效。
+紧凑反馈循环是一个现在就能在这个 bug 上失败的命令。如果没有命令能失败，先写复现测试或脚本，再开始修复。
 
 ## 流程
 
-### 阶段 1：建立反馈循环
+1. 建立反馈循环，连续运行 3 次确认稳定失败
+2. 用测试或命令定位范围
+3. 写清根因，不只写症状
+4. 先写 regression 测试，再做最小修复
+5. 确认反馈循环、regression 和全量测试都通过
+6. 写 post-mortem，记录如何防止同类 bug
 
-1. 找到一个命令，现在运行就能失败（红），且失败与这个 bug 相关。
-2. 如果找不到，先写一个能复现 bug 的测试（即使是个手动测试脚本）。
-3. 确认这个命令稳定失败：连续运行 3 次都失败。
+## 与 ticket 和 route 的关系
 
-### 阶段 2：定位
-
-1. 在反馈循环红着的时候，用二分法定位：注释掉一半代码，看测试还红不红。
-2. 不要看代码"找 bug"：让测试告诉你 bug 在哪。
-3. 当你把 bug 定位到足够小的范围（一个函数或一个模块），进入阶段 3。
-
-### 阶段 3：理解根因
-
-1. 在定位到的位置，理解 bug 为什么发生，不是只看症状。
-2. 问：这个 bug 的根因是什么？是逻辑错误、状态污染、竞态、还是假设变化？
-3. 写下根因的一句话描述。
-
-### 阶段 4：修复
-
-1. 先写一个 regression 测试：断言 bug 行为应该是正确的（绿），现在因为 bug 还是红的。
-2. 然后只修这个根因，最小改动。
-3. 确认 regression 测试变绿。
-4. 确认阶段 1 的反馈循环也变绿。
-5. 确认全量测试套件没有新增失败。
-
-### 阶段 5：Post-mortem
-
-1. 这个 bug 的存在说明哪里有薄弱环节？
-2. 是否需要改进测试覆盖或代码结构来防止同类 bug？
-3. 如果根因是缺少某个 seam 的测试，记下来，在 ticket 的 `## 测试 seam` 中补充。
+修复必须走 bug fix ticket。ticket 的 `## 🧭 路由` 可以指定运行时、adapter、agent 和所需能力。没有指定时，按 `/route-agent` 动态匹配，不默认某个环境或 agent。
 
 ## 禁止
 
-- 不要在没有红测试的情况下改代码修 bug
-- 不要用 print/console.log 调试然后删掉就算修好了：那叫猜测，不叫调试
-- 不要在定位根因之前就提出修复方案
-- 不要跳过 post-mortem
+- 没有红测试就改代码
+- 用临时 print 或 console.log 猜测修复
+- 没定位根因就提出方案
+- 跳过 regression 测试或 post-mortem
