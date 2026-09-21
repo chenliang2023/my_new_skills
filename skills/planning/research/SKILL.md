@@ -1,24 +1,24 @@
 ---
 name: research
-description: 派发后台 agent 调研技术问题，产出 Markdown 文件存入 .workflow/research/。在具备 research 或 delegation 能力的 runtime 中运行。
+description: 派发后台 agent 调研技术问题，产出 Markdown 文件存入 .workflow/research/。
 ---
 
 # Research
 
-在规划过程中，你会遇到需要查文档、读源码或验证 API 行为才能回答的问题。这些是事实型问题，不该拿去问用户。用本 skill 派一个后台 agent，或在当前 runtime 中按能力执行调研。
+规划过程中会遇到需要查文档、读源码或验证 API 行为才能回答的问题。这些是事实型问题，不该拿去问用户。用本 skill 派一个后台 agent 调研。
 
 ## 定位
 
-这是规划阶段的辅助 skill，不固定属于本机或 CodeG。当前 runtime 具备 `research` 或 `delegation` 能力时，可以直接运行。若当前环境不支持后台 agent，就在当前会话执行，或让 `/route-agent` 选择其它可用目标。
+这是规划阶段的辅助 skill，不绑定机器。需要后台调研时，用当前机器上 `strength` 较高或 `tags` 命中 `research` 的 agent（见 ticket 的 route 块和你手边的 agents.json）。
 
 调研文档只有一个成功标准：读者在三十秒内能拍板。做不到就是材料不够，不是文档不够长。
 
 ## 流程
 
 1. **明确调研问题**：用一句能被否定的句子表达核心问题。如果太大，拆成子问题。
-2. **选择 route**：确认目标 runtime、adapter 和 agent，要求至少 `research`；需要后台并发时再要求 `delegation` 或 `parallel`。
-3. **启动调研**：使用目标 adapter 支持的后台任务方式。不要假设一定存在某个任务面板。
-4. **继续手头工作**：如果 adapter 支持并发，可以继续其它规划轮次；不支持时说明当前会话会被占用。
+2. **选定 agent**：按 `phase: research` 取当前机器那一侧的推荐，或直接用当前会话。
+3. **启动调研**：把下面的 prompt 模板交给那个 agent。
+4. **继续手头工作**：agent 在后台跑时，可以继续其它规划轮次。
 5. **整合结果**：读取 `.workflow/research/` 文档，把结论带回 `/grill-me` 或 `/to-spec`。
 
 ## 调研 prompt 模板
@@ -73,4 +73,4 @@ description: 派发后台 agent 调研技术问题，产出 Markdown 文件存�
 
 ## 回报给用户
 
-按 `/readable-docs` 回复：产出路径、结论、不确定点和下一步。说明调研运行在哪个 runtime、通过哪个 adapter，便于后续复现。
+按 `/readable-docs` 回复：产出路径、结论、不确定点和下一步。说明这次调研用的哪个 agent，便于后续复现。

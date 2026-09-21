@@ -19,7 +19,7 @@ disable-model-invocation: true
 1. 读取当前上下文、grill 摘要、调研文档、CONTEXT.md 和相关 ADR。
 2. 确定实现行为和测试 seam，必要时向用户确认 seam。
 3. 写 spec 到 `.workflow/specs/<feature-name>.md`。
-4. 不在 spec 中把 runtime、adapter 或 agent 写成固定前提。只有当行为确实依赖某个能力时，描述能力或约束。
+4. 不在 spec 中把某台机器或某个 agent 写成固定前提。只有当行为确实依赖某种能力时，描述能力或约束。
 
 ## spec 模板
 
@@ -64,5 +64,5 @@ disable-model-invocation: true
 
 ## 下一步
 
-- 运行 `/to-tickets` 拆 ticket，并为每个 ticket 写 route 和所需能力
-- spec 足够小时，也可以直接在具备 `dispatch` 的 runtime 上运行 `/dispatch`
+- 运行 `/to-tickets` 拆 ticket，并为每个 ticket 写本机和服务器两条推荐
+- spec 足够小时，也可以直接运行 `/dispatch`

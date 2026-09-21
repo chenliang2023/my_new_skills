@@ -1,6 +1,6 @@
 ---
 name: diagnosing-bugs
-description: 系统性调试。当遇到 bug、测试失败或意外行为时使用，在提出修复前先建立紧凑反馈循环。任何 runtime 中的 agent 都应遵守。
+description: 系统性调试。当遇到 bug、测试失败或意外行为时使用，在提出修复前先建立紧凑反馈循环。所有 agent 都应遵守。
 ---
 
 # Diagnosing Bugs
@@ -16,7 +16,7 @@ description: 系统性调试。当遇到 bug、测试失败或意外行为时使
 └── tickets/<id>-fix-<slug>.md
 ```
 
-这些文件通过 git 在 runtime 之间共享，不要求修复一定发生在某个环境。
+这些文件通过 git 在本机和服务器之间共享，不要求修复一定发生在某台特定的机器上。
 
 ## 核心原则：先有反馈循环再修复
 
@@ -31,9 +31,9 @@ description: 系统性调试。当遇到 bug、测试失败或意外行为时使
 5. 确认反馈循环、regression 和全量测试都通过
 6. 写 post-mortem，记录如何防止同类 bug
 
-## 与 ticket 和 route 的关系
+## 与 ticket 和推荐 agent 的关系
 
-修复必须走 bug fix ticket。ticket 的 `## 🧭 路由` 可以指定运行时、adapter、agent 和所需能力。没有指定时，按 `/route-agent` 动态匹配，不默认某个环境或 agent。
+修复必须走 bug fix ticket。ticket 的 route 块给出本机和服务器两条推荐 agent，按当前机器取一条；还没写时运行 `/route-agent`。
 
 ## 禁止
 

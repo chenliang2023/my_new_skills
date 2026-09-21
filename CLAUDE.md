@@ -1,71 +1,123 @@
 # Skills 仓库说明
 
-本仓库是一套可在多个 runtime 中运行的开发研究工作流 skill 集合，参考 [mattpocock/skills](https://github.com/mattpocock/skills) 的结构。CodeG 是一个可选 runtime，它通过 `codeg-todos` adapter 提供多 agent 任务能力。本机工作区也可以独立承担规划、执行、验证和 review。
+本仓库是一套开发研究工作流 skill 集合，参考 [mattpocock/skills](https://github.com/mattpocock/skills) 的结构。
+
+模型很简单：**任务内容** 和 **谁来执行**。
+
+## 本仓库没有 `.workflow/`
+
+本仓库只是 skill 集合，自身不跑这套工作流，也不包含 `.workflow/`。
+
+| 东西 | 放哪 | 谁提交 |
+|------|------|--------|
+| skills | 本仓库的 `skills/` | 本仓库 |
+| 基线 agent 名单 | 本仓库 `skills/setup/setup-agents/agents.baseline.json` | 本仓库 |
+| `.workflow/config.json`、`agents.json`、spec、ticket、报告 | **被管理项目的** `.workflow/` | 那个项目自己 |
+
+`/setup-workflow`、`/setup-agents` 等 skill 都用在别的项目里，不在本仓库里跑。
+
+基线名单之所以放在本仓库，是因为它要跳项目复用；`.workflow/agents.json` 属于每个项目自己，随项目提交。
 
 ## 目录组织
 
 Skills 按 bucket 文件夹组织：
 
 - `ask/`：根技能，所有 skill 的路由器
-- `planning/`：规划、调研、spec 和 ticket 产出
-- `dispatch/`：按 ticket 分派和执行任务
+- `planning/`：规划、调研、spec、ticket 和版本
+- `dispatch/`：推荐、分派和验证
 - `engineering/`：工程实践规范
-- `setup/`：路径、agent 和 runtime 注册表初始化
+- `setup/`：路径配置和 agent 清单
 
 每个 skill 文件夹内含一个 `SKILL.md`，使用 YAML frontmatter 声明 `name`、`description`、是否 `disable-model-invocation`。
 
 - `disable-model-invocation: true`：用户调用，负责编排和明确选择
 - 无此字段：模型调用，承载可复用纪律
 
-## Runtime 架构
+## 执行模型
 
-本仓库不把“规划端”和“执行端”绑定到某个地点。任何已注册且具备相应能力的 runtime 都可以运行 planning、research、dispatch、execute、verify、review 或 integrate。
+唯一的执行方式：**每个 ticket 一个 git worktree**。
 
-- `.workflow/agents.json`：Agent 注册表的唯一真相源，只描述稳定 `id`、显示名、可选角色、标签、成本和描述，不描述运行环境
-- `.workflow/runtimes.json`：Runtime、adapter、能力、agent policy 和阶段默认路由的唯一真相源
-- `.workflow/config.json`：只保存路径类配置
-- `.workflow/`：跨 runtime 共享并提交到 git 的上下文载体
+- 工作树放在 `config.json` 的 `worktree_dir`（默认 `.worktrees/`），一个 ticket 一个目录
+- 分支名按 `branch_template`（默认 `ticket/<id>-<slug>`）
+- 完成后在自己的工作树里 commit，合回主分支，再删掉工作树和分支
+- 合并是 `/dispatch` 流程的自然结尾，没有独立的集成阶段
 
-CodeG runtime 的 To-dos、git worktree 隔离、并发、Review/Merge、`@` 委托和 preflight 都作为 `codeg-todos` adapter 的可选能力。它们不是所有 runtime 必须提供的工作流前提。本机 adapter 也可以声明其中一部分或全部能力。
+不区分任务系统、队列或面板。`/dispatch` 读完 ticket 就能知道该做什么，不需要先判断「这个项目用的是哪种机制」。
 
 ## Agent
 
-Agent 的名称、数量、角色和可用 runtime 都由项目配置决定。不要在文档或 skill 中假设某个固定 agent、单一入口或固定模型。
+`.workflow/agents.json` 是唯一注册表，同时包含两台机器的记录。它属于被管理的项目，不在本仓库里。
 
-- Agent 用稳定的 kebab-case `id` 引用
-- `display_name` 只用于展示，可以修改
-- `role` 是可选的人读分类，`tags` 和 `cost_tier` 用于动态路由
-- 不再使用单一 `manual_entry`。阶段默认入口写在 `.workflow/runtimes.json`，也可以由 ticket 或本次调用覆盖
-- `agent_id: null` 表示当前用户会话、脚本或人工执行，不需要注册 agent
+每个 agent 只记录：
+
+| 字段 | 含义 |
+|------|------|
+| `id` | 稳定的 kebab-case 引用名 |
+| `harness` | 运行外壳，如 `claude-code`、`codex` |
+| `host` | `local` 或 `server` |
+| `strength` | `high`、`medium`、`low` |
+| `speed` | `fast`、`medium`、`slow` |
+| `tags` | 擅长领域 |
+
+`strength`、`speed`、`tags` 是主观判断，登记时向用户确认，不要凭 harness 名字猜。
+
+本仓库的 `skills/setup/setup-agents/agents.baseline.json` 里有一份固定下来的基线名单，在项目里首次运行 `/setup-agents` 时复制成该项目的 `.workflow/agents.json`，再按实际情况增改。
+
+不要记录任务系统、容量、并发数或安装路径。执行方式已经固定，这些维度不存在。
+
+## 本机和服务器
+
+两台机器**能力完全相同**，都能规划、调研、执行、review 和验证。差别只有各自装了哪些 agent。
+
+- 没有 runtime 注册表，也没有 adapter 概念
+- 不从机器名字推断能力，也不把某个阶段绑到某台机器
+- 两台机器读同一份 `agents.json`，各自只执行属于自己 `host` 的记录
+
+## 两条推荐
+
+每个 ticket 的 route 块给两条，独立计算：
+
+```yaml
+phase: execution
+local: claude-code-opus
+server: codex-high
+```
+
+`/route-agent` 按 `host` 过滤候选池，再按 tags 命中数、`strength`、`speed` 排序。phase 决定这三项的比较先后，`execution` 和 `verification` 先看 tags 和 speed，`planning`、`research`、`review` 先看 tags 和 strength。
+
+`manual` 表示由当前会话或人工完成，不需要注册 agent。
+
+`/dispatch` 只取当前机器那一侧的值。在服务器上跑时 `local:` 的值无关。
 
 ## 主工作流
 
-1. 选择或自动匹配一个具备 `interactive`、`plan` 或 `research` 能力的 runtime
-2. `/grill-me` 澄清需求，必要时 `/research`
-3. `/to-spec` 产出 spec
-4. `/to-tickets` 拆成自包含 ticket，并写入 phase、runtime、adapter、agent 和能力约束
-5. 选择具备 `execute` 或 `dispatch` 能力的目标，运行 `/dispatch`
-6. 按目标 adapter 提供的能力执行任务、并发、隔离、review 和 merge
-7. `/verify` 在具备 `verify` 能力的目标上全量验证
-8. `/code-review` 在任意具备 `review` 能力的 runtime 上复审，必要时通过 `.workflow/` 交接
-9. `/version` 在验证通过后处理 release
+1. `/grill-me` 澄清需求，需要事实时 `/research`
+2. `/to-spec` 产出 spec
+3. `/to-tickets` 拆成自包含 ticket，写入阻塞边和两条 agent 推荐
+4. `/route-agent` 预检，补齐 `manual` 或因注册表变化失效的推荐
+5. `/dispatch` 排批次、建 worktree、选 agent、给工具建议，完成后合并
+6. `/verify` 合并后全量验证，产出报告
+7. `/code-review` 双轴复审
+8. `/version` 验证通过后处理 release
 
-如果路由没有唯一结果，询问用户，不要暗中回退到某个地点或某个 agent。
+不通过时走 `/diagnosing-bugs`，写 bug fix ticket 回到第 3 步。
 
 ## 约定
 
-- `.workflow/` 目录是共享上下文载体，必须提交到 git
-- ticket 文件是 agent 或当前会话的工作单元，必须自包含
-- ticket 的 runtime、adapter 和 agent 是三个独立维度
+- `.workflow/` 是**被管理项目**里的共享上下文载体，必须提交到那个项目的 git
+- `.worktrees/` 必须进被管理项目的 `.gitignore`
+- ticket 必须自包含，拿到单个 ticket 就能开工
+- agent 引用只写 `id`，不写 `display_name`，不写机器名或路径
 - `.workflow/` 下的文档遵守 `readable-docs`：先对人可读，再对 agent 可解析
-- `CONTEXT.md` 让不同 runtime 和 agent 使用一致术语
-- `/integrate` 只在目标 adapter 没有足够的 merge 能力，或需要跨 ticket 协调时补充使用
+- `CONTEXT.md` 让不同 agent 使用一致术语
+- 不改写本仓库里 skills 的结构去适配某个具体项目
 - 不使用 em-dash
 
-## 首次使用
+## 在一个新项目里启用
 
-1. 运行 `/setup-workflow` 创建路径和目录
-2. 运行 `/setup-agents` 配置可用 agent，允许为空
-3. 运行 `/setup-runtimes` 配置本机、CodeG 或其它 runtime adapter
-4. 运行 `/context-sync` 确认共享文档和 skills 已同步
-5. 运行 `/ask` 或直接运行 `/grill-me` 开始工作
+以下步骤都在**那个项目**里跑，不在本仓库里：
+
+1. `/setup-workflow` 创建 `.workflow/`、路径配置，并把 `.worktrees/` 加进 `.gitignore`
+2. `/setup-agents` 复制基线名单，再按实际情况增改
+3. `/context-sync` 确认两台机器的共享文档和 skills 一致
+4. `/ask` 或直接 `/grill-me` 开始工作

@@ -1,11 +1,11 @@
 ---
 name: readable-docs
-description: 写、补全或返工 .workflow/ 下的文档（research、spec、ticket、grill 摘要、verify 报告、ADR）时使用。规定材料门槛、说话位置、段落切分（宁短勿长）、中文写法、emoji 密度与用法、Mermaid 图规范、查证过程与翻案腔的分界、补全时如何融入正文、交稿前自检，以及写完后如何在对话里给用户一个工整的回复。适用于所有 runtime。
+description: 写、补全或返工 .workflow/ 下的文档（research、spec、ticket、grill 摘要、verify 报告、ADR）时使用。规定材料门槛、说话位置、段落切分（宁短勿长）、中文写法、emoji 密度与用法、Mermaid 图规范、查证过程与翻案腔的分界、补全时如何融入正文、交稿前自检，以及写完后如何在对话里给用户一个工整的回复。适用于本机和服务器上的所有 agent。
 ---
 
 # Readable Docs
 
-`.workflow/` 下的每份文档都有两个读者：你自己，和执行任务的 agent。agent 可以运行在任意 registered runtime。现有模板只服务了后者（自包含、可解析），结果是人读起来费劲。本 skill 补上第一个读者。
+`.workflow/` 下的每份文档都有两个读者：你自己，和执行任务的 agent。agent 可能在本机，也可能在服务器上。现有模板只服务了后者（自包含、可解析），结果是人读起来费劲。本 skill 补上第一个读者。
 
 ## 两个读者要什么
 

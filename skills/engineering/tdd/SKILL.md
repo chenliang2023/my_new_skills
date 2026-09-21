@@ -1,6 +1,6 @@
 ---
 name: tdd
-description: 测试驱动开发。当用户要构建功能或修复 bug 时使用。任何 runtime 中实现 ticket 的 agent 都应遵守。
+description: 测试驱动开发。当用户要构建功能或修复 bug 时使用。实现 ticket 的 agent 都应遵守。
 ---
 
 # Test-Driven Development
@@ -29,4 +29,4 @@ TDD 是红 → 绿循环。本 skill 说明怎样让这个循环产出值得保�
 
 ## 在本工作流中的位置
 
-任何具备 `execute` 能力的 runtime 都可实现 ticket，但 agent 需要遵守同一套 TDD 纪律。`/verify` 负责最终全量检查。
+任何 agent 都可实现 ticket，但要遵守同一套 TDD 纪律。每个 ticket 在自己的 worktree 里完成，测试和实现一起提交，由 `/verify` 做最终全量检查。

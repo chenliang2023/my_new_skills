@@ -1,66 +1,51 @@
 ---
 name: verify
-description: 在具备 verify 能力的 runtime 中做全量验证，利用可选的 preflight，并产出共享验证报告。
+description: 在 ticket 的工作树合并后做全量验证，产出共享验证报告。本机和服务器都能跑，用哪台就从 agents.json 里取那台的 agent。
 disable-model-invocation: true
 ---
 
 # Verify
 
-所有目标 ticket 完成并达到可验证状态后，运行一次全量验证。这是工作流的质量门，不属于某个固定环境或 agent。
+相关工作树合并到主分支后，运行一次全量验证。这是工作流的质量门。
 
-## Adapter 能力
-
-- `verify`：可以运行验证命令
-- `preflight`：任务进入 review 前自动运行命令
-- `execute`：需要修改测试或修复失败时
-- `review`：需要同时做结果审查时
-
-CodeG 的 Task settings 和 preflight 只是 `codeg-todos` adapter 的一种实现。其它 adapter 可以使用脚本、CI 或当前会话完成同样的验证。
+验证不受机器限制。本机和服务器都能跑全部检查，区别只在用哪台的 agent。
 
 ## 前提
 
-- `.workflow/tickets/` 中相关 ticket 已完成，或用户明确指定要验证的范围
-- 代码和上下文已在目标 runtime 同步到同一 commit
-- 目标 route 至少提供 `verify`
+- 相关 ticket 已完成并合并，或用户明确指定要验证的范围
+- 目标 commit 已经在当前机器上
+- 工作区干净
 
-## Canonical route
+## route
 
-验证使用独立的 phase，不继承执行 ticket 的 route：
+验证是独立阶段，用自己的 phase 重新取推荐：
 
 ```yaml
 phase: verification
-runtime_id: auto
-adapter_id: auto
-agent_id: auto
-capabilities_all: [verify]
-capabilities_any: []
+local: copilot-fast
+server: codex-high
 ```
 
-`agent_id: null` 允许当前用户会话、脚本或人工执行，但目标 adapter 的 `agent_ids` 必须是空数组。`preflight` 不能替代 `verify`。
+按当前机器取一条：
 
-## 选择 route
+- 本机就取 `local:`
+- 服务器就取 `server:`
+- `manual` 表示当前会话或人工执行
 
-优先级：
-
-1. 用户本次指定的 runtime、adapter、agent
-2. `/verify` 调用参数或 handoff 中 phase 为 `verification` 的 route
-3. `runtimes.json` 的 `routing.defaults.verification`
-4. `/route-agent` 按 `verify` 能力动态匹配
-
-不查找 `manual_entry`，也不默认为某个 agent、CodeG、本机或服务器。如果有多个等价目标，报告候选并让用户选择，除非注册表已有阶段默认。
+缺推荐时先运行 `/route-agent`。不要沿用 execution 阶段的 agent，除非 `/route-agent` 算出来是同一个。
 
 ## 验证清单
 
-按顺序执行，前一步失败时先报告，不把后续结果伪装成通过：
+按顺序执行。前一步失败时先报告，不要把后续结果伪装成通过。
 
 1. 类型检查
 2. Lint
 3. 单元测试
 4. 构建
 5. 集成测试（如有）
-6. 与本批 ticket 相关的 smoke test 或迁移检查
+6. 与本批 ticket 相关的 smoke test
 
-命令从项目配置、spec、ticket 或用户输入读取，不要使用仓库外的固定命令示例替代实际命令。
+命令从项目现有配置读，不要用本文件里的示例替代实际命令。
 
 ## 结果报告
 
@@ -71,12 +56,11 @@ capabilities_any: []
 
 ## 🧭 运行目标
 - Phase：`verification`
-- Runtime：<runtime-id>
-- Adapter：<adapter-id>
-- Agent：<agent-id 或 null>
+- 机器：<local 或 server>
+- Agent：<agent-id 或 manual>
 - Commit：<hash>
 
-## 📊 验证结果
+## 📊 结果
 
 ### 🔍 类型检查
 - [ ] 通过 / [ ] 失败
@@ -86,30 +70,45 @@ capabilities_any: []
 ### 🧹 Lint
 - [ ] 通过 / [ ] 失败
 - 命令：`<实际命令>`
-- 原始输出：<必要部分>
 
 ### 🧪 单元测试
 - [ ] 全部通过 / [ ] 有失败
-- 命令：`<实际命令>`
 - 通过：M / 总计：T
 - 失败列表：<测试名和原始输出>
 
 ### 📦 构建
 - [ ] 通过 / [ ] 失败 / [ ] 不适用
-- 命令：`<实际命令>`
 
 ### 🔗 集成测试
 - [ ] 通过 / [ ] 失败 / [ ] 不适用
 
 ## 🏁 结论
-- [ ] 可交付：所有必要验证通过
-- [ ] 不可交付：存在失败，需修复
-- 待修复项：<命令、原始报错、影响 ticket 和范围>
+- [ ] 可交付
+- [ ] 不可交付
+- 待修复项：<命令、原始报错、影响的 ticket>
 ```
 
-报告按 `/readable-docs` 写。失败项保留最小原始输出，让另一个 runtime 能据此继续，不要只写“测试失败”。
+按 `/readable-docs` 写。失败项保留最小原始输出，让另一台机器能据此继续。
+
+## 跨机器验证
+
+在一台机器上改、在另一台机器上验，是这套流程的正常用法：
+
+1. 改的那台 commit 并推送
+2. 验的那台拉取同一个 commit
+3. 在验的那台按 `phase: verification` 取推荐并执行
+4. 报告提交到 git，两台都能看到
+
+同一个 commit 在两台机器上验出不同结果时，先查环境差异（依赖版本、环境变量、外部服务），不要先怀疑代码。
 
 ## 回报与下一步
 
-- 全部通过：提交验证报告，按需要在任意 `review` runtime 运行 `/code-review`，再决定是否 `/version`
-- 有失败：列出失败项和受影响 ticket，在具备 `execute` 的 route 上创建修复任务，修复后重新 `/verify`
+- 全部通过：提交报告，运行 `/code-review`，再决定是否 `/version`
+- 有失败：列出失败项和受影响 ticket，写 bug fix ticket，重新走 `/dispatch`，修完再跑 `/verify`
+
+## 反模式
+
+- 🚫 跳过类型检查或 lint 直接跑测试
+- 🚫 把「本地能过」当成验证通过
+- 🚫 失败项只写「测试失败」，不给命令和原始输出
+- 🚫 沿用 execution 阶段的 agent 而不重新走 `/route-agent`

@@ -1,0 +1,73 @@
+{
+  "schema_version": 1,
+  "_comment": "基线 agent 名单。首次在某个项目上运行 /setup-agents 时，把这份内容复制成该项目的 .workflow/agents.json，再按那台机器的实际情况增改。这里的 id 是稳定引用名，ticket 里的 local: / server: 指向它们。",
+  "agents": [
+    {
+      "id": "codex-gpt",
+      "display_name": "Codex / GPT",
+      "harness": "codex",
+      "model": "gpt",
+      "host": "local",
+      "strength": "high",
+      "speed": "slow",
+      "tags": [
+        "architecture",
+        "security",
+        "debugging",
+        "refactor",
+        "backend"
+      ],
+      "description": "本机最强的一个，用于架构决策、疑难 bug 和安全敏感任务"
+    },
+    {
+      "id": "claude-domestic",
+      "display_name": "Claude / 国模",
+      "harness": "claude",
+      "model": "deepseek 等国模",
+      "host": "local",
+      "strength": "medium",
+      "speed": "fast",
+      "tags": [
+        "backend",
+        "frontend",
+        "test",
+        "docs",
+        "refactor"
+      ],
+      "description": "本机主力，响应快，覆盖常规实现、测试和文档"
+    },
+    {
+      "id": "oh-my-pi-gpt",
+      "display_name": "oh-my-pi / GPT",
+      "harness": "oh-my-pi",
+      "model": "gpt",
+      "host": "server",
+      "strength": "medium",
+      "speed": "medium",
+      "tags": [
+        "backend",
+        "refactor",
+        "test",
+        "docs"
+      ],
+      "description": "服务器上的常规实现 agent"
+    },
+    {
+      "id": "antigravity-gemini",
+      "display_name": "Antigravity / Gemini",
+      "harness": "antigravity",
+      "model": "gemini",
+      "host": "server",
+      "strength": "medium",
+      "speed": "fast",
+      "tags": [
+        "frontend",
+        "frontend-design",
+        "ui",
+        "styling",
+        "interaction"
+      ],
+      "description": "服务器上的前端主力，响应快，前端能力强"
+    }
+  ]
+}

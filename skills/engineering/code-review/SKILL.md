@@ -1,6 +1,6 @@
 ---
 name: code-review
-description: 对当前 diff、PR 或分支做双轴代码复审。可在任意具备 review 能力的 runtime 中运行。
+description: 对当前 diff、PR 或分支做双轴代码复审。合并后或发布前运行，本机和服务器都可以。
 disable-model-invocation: true
 ---
 
@@ -13,32 +13,31 @@ disable-model-invocation: true
 
 ## 何时运行
 
-- ticket 执行完成后，目标 adapter 进入 review 阶段
-- 多个 ticket 集成后，需要看整体 diff
-- 发布前，需要在另一个 runtime 做独立复审
+- ticket 合并后，看整体 diff
+- 发布前做一次独立复审
+- 怀疑实现偏离 spec 时
 
-审查可以在执行 runtime 完成，也可以在另一个具备 `review` 能力的 runtime 完成。跨 runtime 时先通过 git 和 `.workflow/handoffs/` 同步上下文。
+审查可以在改代码的那台机器上做，也可以在另一台上做。跨机器时先通过 git 和 `.workflow/handoffs/` 同步上下文。
 
-## Canonical route
+## route
 
-复审使用独立的 `review` phase，不继承执行 ticket 的 route：
+复审是独立阶段，用自己的 phase 重新取推荐：
 
 ```yaml
 phase: review
-runtime_id: auto
-adapter_id: auto
-agent_id: auto
-capabilities_all: [review]
-capabilities_any: []
+local: claude-code-opus
+server: codex-high
 ```
 
-`agent_id: null` 允许当前用户会话、脚本或人工执行，但目标 adapter 的 `agent_ids` 必须是空数组。选择顺序与 `/verify` 相同：用户显式指定、参数或 handoff 中的 route、`routing.defaults.review`、最后按 `review` 能力动态匹配。多个等价候选时询问用户。
+按当前机器取一条。优先选与 execution 阶段推荐不同的 agent，换一双眼睛看。同一台机器上只有那一个 agent 时照用，并注明是同 agent 自审。
+
+缺推荐时运行 `/route-agent`。
 
 ## 流程
 
 ### 1. 确定范围
 
-读取当前 diff。分支、PR 或工作区的范围由用户明确指定，不根据 runtime 名称猜测 base。
+读取当前 diff。分支、PR 或工作区的范围由用户明确指定，不根据机器名称或目录名猜测 base。
 
 ### 2. 规范符合审查
 
@@ -61,9 +60,8 @@ capabilities_any: []
 
 ### 🧭 审查目标
 - Phase：`review`
-- Runtime：<id>
-- Adapter：<id>
-- Agent：<id、null 或未指定>
+- 机器：<local 或 server>
+- Agent：<agent-id 或 manual>
 - Diff：<范围>
 
 ### ✅ 规范符合

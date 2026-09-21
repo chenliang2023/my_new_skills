@@ -1,6 +1,6 @@
 ---
 name: grill-me
-description: 通过 relentless interview 打磨一个想法、计划或设计，直到它足够清晰可以写 spec。在当前可交互的 runtime 中运行。
+description: 通过 relentless interview 打磨一个想法、计划或设计，直到它足够清晰可以写 spec。
 disable-model-invocation: true
 ---
 
@@ -10,9 +10,9 @@ disable-model-invocation: true
 
 ## 定位
 
-这是交互式规划入口。它不属于某个固定地点或固定 agent。只要当前 runtime 具备 `interactive` 能力，就可以运行本 skill。若需要在另一个 runtime 继续，使用 `.workflow/handoffs/` 保存摘要。
+这是交互式规划入口，需要用户当场参与。它不绑定机器：在哪台机器上开始就在哪台继续。需要在另一台机器上接手时，用 `.workflow/handoffs/` 保存摘要。
 
-如果项目有 `.workflow/config.json`，可以把摘要写入 `.workflow/handoffs/grill-summary-<date>.md`。是否写入本机、CodeG 或其它位置由当前 runtime 的路径和同步策略决定。
+如果项目有 `.workflow/config.json`，可以把摘要写入 `.workflow/handoffs/grill-summary-<date>.md`。摘要要自包含，不要假设当前会话仍然存在。
 
 ## interview 规则
 
@@ -67,10 +67,10 @@ disable-model-invocation: true
 <需要用户拍板、需要调研或需要先看其它结论的问题>
 ```
 
-摘要按 `/readable-docs` 写，段落短，emoji 只用于导航。若后续由另一个 runtime 执行，摘要必须足够自包含，不要假设当前 session 仍然存在。
+摘要按 `/readable-docs` 写，段落短，emoji 只用于导航。若后续由另一台机器执行，摘要必须足够自包含。
 
 ## 与其它 skill 的关系
 
 - 摘要喂给 `/to-spec`
 - 需要技术事实时暂停并运行 `/research`
-- 需要明确执行位置时，在 `/to-tickets` 为 ticket 写 route，而不是在 grill 阶段假设某个环境
+- 需要确定执行者时，在 `/to-tickets` 为 ticket 写两条推荐，而不是在 grill 阶段假设某个 agent

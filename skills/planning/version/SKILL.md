@@ -1,21 +1,21 @@
 ---
 name: version
-description: 管理项目的版本号、CHANGELOG、release 流程。决定何时 bump major/minor/patch、如何生成 changelog、如何打 git tag。可在 /verify 之后、/code-review 之前或之后的任意合适 runtime 手动调用。
+description: 管理项目的版本号、CHANGELOG、release 流程。决定何时 bump major/minor/patch、如何生成 changelog、如何打 git tag。可在 /verify 之后、/code-review 之前或之后手动调用。
 disable-model-invocation: true
 ---
 
 # Version
 
-把多个 runtime、adapter 和 agent 产生的变更归一到版本管理上：每次 release 都有明确的版本号、自洽的 CHANGELOG、可回溯的 git tag。**前提是项目已经经过 `/verify` 全量验证**。
+把本机和服务器上多个 agent 产生的变更归一到版本管理上：每次 release 都有明确的版本号、自洽的 CHANGELOG、可回溯的 git tag。**前提是项目已经经过 `/verify` 全量验证**。
 
 ## 何时调用
 
-- 一批 ticket 都 merge 完、想切一个版本出来（feature release）
+- 一批 ticket 都合并完、想切一个版本出来（feature release）
 - 修了 critical bug，要紧急 patch release
 - 项目首次发版（0.1.0）
 - 想看一下当前版本距离上次 release 累积了多少 breaking changes
 
-不在主流程上每次跑，只在 release 节点跑。CI/CD pipeline 里通常也会自动跑，本 skill 是手动调用的口子。运行目标由当前 route 和 adapter 能力决定，不固定某个环境。
+不在主流程上每次跑，只在 release 节点跑。CI/CD pipeline 里通常也会自动跑，本 skill 是手动调用的口子。在哪台机器上跑都行，先确认工作树都已合并且 `.worktrees/` 里没有未合并的分支。
 
 ## 产物落点
 
@@ -94,6 +94,29 @@ disable-model-invocation: true
 **不要每种工具都试一遍**。已经在用哪个就用哪个；想换只换一次，不要中途换。
 
 ## 工作流
+
+### 0. 确认没有未合并的工作树
+
+每个 ticket 在自己的 worktree 里完成，发版前必须先把它们收干净：
+
+```bash
+git worktree list
+```
+
+对每个列出的工作树确认三件事：
+
+- 改动已 commit
+- 分支已合并回主分支
+- 工作树和分支可以删除
+
+还有未合并的分支时停止发版，先回去合并。带着未合并的工作树打 tag，tag 指向的 commit 里不会有那部分代码，但 ticket 状态已经是 `done`，后面很难查。
+
+合并完成后清理：
+
+```bash
+git worktree remove <path>
+git branch -d <branch>
+```
 
 ### 1. 扫描 commit
 
